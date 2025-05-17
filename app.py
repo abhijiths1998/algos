@@ -87,30 +87,31 @@ nse_500_symbols = [
 
 # Master filter
 with st.sidebar:
-    st.header("\U0001F4CB Filters")
+    st.header("📋 Filters")
     st.markdown("""Customize your analysis with dynamic filters below:""")
     default_symbols = ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
-if set(default_symbols).issubset(set(nse_500_symbols)):
-    master_symbols = st.multiselect(
-        "🔍 Select Stocks (Master Filter)",
-        options=nse_500_symbols,
-        default=default_symbols,
-        key="master_symbols"
-    )
-else:
-    st.warning("Some default symbols are not in the options. Please select manually.")
-    master_symbols = st.multiselect(
-        "🔍 Select Stocks (Master Filter)",
-        options=nse_500_symbols,
-        key="master_symbols"
-    )
+    if set(default_symbols).issubset(set(nse_500_symbols)):
+        master_symbols = st.multiselect(
+            "🔍 Select Stocks (Master Filter)",
+            options=nse_500_symbols,
+            default=default_symbols,
+            key="master_symbols"
+        )
+    else:
+        st.warning("Some default symbols are not in the options. Please select manually.")
+        master_symbols = st.multiselect(
+            "🔍 Select Stocks (Master Filter)",
+            options=nse_500_symbols,
+            key="master_symbols"
+        )
+
     display_period = st.selectbox("Time Period", ["1mo", "3mo", "6mo", "1y", "5y"], index=1, key="display_period")
     compare_type = st.radio("Compare By", ["Top Gainers", "Top Losers"], horizontal=True, key="compare_type")
-    show_raw_data = st.checkbox("\U0001F4DD Show Raw Data", key="show_raw_data")
-    show_info = st.checkbox("\U0001F6C8 Show DataFrame Info", key="show_info")
-    show_nulls = st.checkbox("\U0001F573 Show Null Summary", key="show_nulls")
+    show_raw_data = st.checkbox("📝 Show Raw Data", key="show_raw_data")
+    show_info = st.checkbox("🛈 Show DataFrame Info", key="show_info")
+    show_nulls = st.checkbox("🕳 Show Null Summary", key="show_nulls")
     st.markdown("---")
-    st.caption("Developed by abhivarma362 · Powered by Streamlit")
+    st.caption("Developed by ChatGPT · Powered by Streamlit")
 
 # Download data
 st.info("\U0001F4E5 Downloading stock data...")
