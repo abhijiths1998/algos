@@ -157,7 +157,64 @@ try:
     if stock_df.empty or "Close" not in stock_df:
         st.warning("⚠️ No data found.")
     else:
-        st.line_chart(stock_df["Close"], use_container_width=True)
+        # st.line_chart(stock_df["Close"], use_container_width=True)
         st.dataframe(stock_df.tail(10))
 except Exception as e:
     st.error(f"Error: {e}")
+
+# -------------------------------------
+# 🧠 Actionable Insights and Suggestions
+# -------------------------------------
+st.markdown("---")
+st.header("🧠 Actionable Insights")
+
+insights = []
+
+# 1. Stocks down > 5% (Buy signal)
+buy_suggestions = df_perf[df_perf["Change (%)"] <= -5]
+if not buy_suggestions.empty:
+    insights.append(f"🟢 **{len(buy_suggestions)} stock(s)** dropped more than 5% — possible BUY opportunities:")
+    for row in buy_suggestions.itertuples():
+        insights.append(f" ➡️ `{row.Symbol}` dropped **{row._4:.2f}%** from ₹{row._2:.2f} to ₹{row._3:.2f}")
+
+# 2. Consistent uptrend stocks
+uptrend = []
+for symbol in symbols:
+    try:
+        data = df_filtered[symbol]['Close'].dropna()
+        if len(data) >= 5 and all(data[i] < data[i + 1] for i in range(len(data) - 5, len(data) - 1)):
+            uptrend.append(symbol)
+    except:
+        continue
+
+if uptrend:
+    insights.append(f"📈 **Consistent Uptrend Detected** in the last 5 days for: `{', '.join(uptrend)}`")
+
+# 3. Volatile stocks (std dev > threshold)
+volatility_alerts = []
+for symbol in symbols:
+    try:
+        data = df_filtered[symbol]['Close'].dropna()
+        if data.std() > 50:  # adjust threshold
+            volatility_alerts.append(f"{symbol} (std dev ₹{data.std():.2f})")
+    except:
+        continue
+
+if volatility_alerts:
+    insights.append("⚠️ High volatility detected in:")
+    for v in volatility_alerts:
+        insights.append(f" 🔄 {v}")
+
+# 4. Stocks with insufficient data
+low_data = df_perf[df_perf["Start Price"] == df_perf["End Price"]]
+if not low_data.empty:
+    insights.append("❗ Stocks with no price movement (may be suspended or inactive):")
+    for row in low_data.itertuples():
+        insights.append(f" ⛔ `{row.Symbol}`")
+
+# Show insights
+if insights:
+    for line in insights:
+        st.markdown(line)
+else:
+    st.success("✅ All stocks appear stable with no major anomalies.")
