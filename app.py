@@ -4,12 +4,12 @@ import pandas as pd
 import datetime
 import time
 
-# Streamlit UI setup
+# Streamlit page config
 st.set_page_config(page_title="NSE Top 50 Weekly Analyzer", layout="wide")
 st.title("📈 NSE Top 50 - Weekly Price Change Tracker")
-st.markdown("Shows weekly % change using real data from the past month via Yahoo Finance.")
+st.markdown("Shows weekly % change using real daily data from the past month via Yahoo Finance.")
 
-# Adjust for weekends
+# Date logic: get most recent weekday if weekend
 today = datetime.date.today()
 if today.weekday() >= 5:
     today -= datetime.timedelta(days=today.weekday() - 4)
@@ -17,7 +17,7 @@ if today.weekday() >= 5:
 start_date = today - datetime.timedelta(weeks=4)
 st.markdown(f"📅 Analyzing data from **{start_date}** to **{today}**")
 
-# Top 50 NSE tickers
+# NSE Top 50 tickers
 symbols = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
     "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
@@ -43,7 +43,8 @@ with st.spinner("📥 Downloading and analyzing..."):
 
             df = df[['Close']].dropna().reset_index()
             df['Week'] = df['Date'].dt.isocalendar().week
-            weekly = df.groupby('Week')['Close'].agg(['first', 'last']).reset_index()
+
+            weekly = df.groupby('Week', as_index=False)['Close'].agg(first='first', last='last')
             weekly['% Change'] = ((weekly['last'] - weekly['first']) / weekly['first']) * 100
             weekly['Symbol'] = symbol
 
@@ -54,7 +55,7 @@ with st.spinner("📥 Downloading and analyzing..."):
             st.warning(f"{symbol} skipped: {e}")
             continue
 
-# Combine all
+# Display final combined results
 if results:
     combined = pd.concat(results)
     combined = combined[['Symbol', 'Week', 'first', 'last', '% Change']]
