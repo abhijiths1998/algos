@@ -4,10 +4,12 @@ import pandas as pd
 import datetime
 import io
 
-st.set_page_config(page_title="📊 NSE 7-Week Summary", layout="wide")
-st.title("📊 NSE Stock Price Analysis (Last 7 Weeks)")
+st.set_page_config(page_title="📊 NSE Dashboard", layout="wide")
+st.title("📊 NSE Stock Price Analysis Dashboard")
 
-# List of top 50 NSE symbols
+# -----------------------------
+# Symbol list: Top 50 NSE stocks
+# -----------------------------
 symbols = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
     "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
@@ -21,40 +23,51 @@ symbols = [
     "HINDALCO.NS", "TATASTEEL.NS", "APOLLOHOSP.NS", "DMART.NS", "PIDILITIND.NS"
 ]
 
-# Download data
-st.info("📥 Downloading 3-month price history from Yahoo Finance...")
+# -------------------------------
+# 🔄 Download 3-months stock data
+# -------------------------------
+st.info("📥 Downloading stock data...")
 df_stocks = yf.download(symbols, period="3mo", group_by="ticker", progress=False)
 
-# Validate datetime index
 if not isinstance(df_stocks.index, pd.DatetimeIndex):
-    st.error("❌ Data index is not datetime. Cannot continue.")
+    st.error("❌ Index is not datetime. Cannot proceed.")
     st.stop()
 
-# Filter last 7 weeks
+# -------------------------------
+# 📅 Filter last 7 weeks
+# -------------------------------
 latest_date = df_stocks.index.max()
 start_date = latest_date - datetime.timedelta(weeks=7)
 df_filtered = df_stocks[df_stocks.index >= start_date]
 
-st.markdown(f"📅 **Date Range**: `{start_date.date()} → {latest_date.date()}`")
+st.markdown(f"🗓️ Showing data from **{start_date.date()}** to **{latest_date.date()}**")
 
-# Raw DataFrame
-st.subheader("📦 7-Week Raw Data")
+# -------------------------------
+# 📦 Raw Data
+# -------------------------------
+st.subheader("📦 Filtered 7-Week Raw Data")
 st.dataframe(df_filtered)
 
-# DataFrame Info
+# -------------------------------
+# ℹ️ DataFrame Info
+# -------------------------------
 st.subheader("ℹ️ DataFrame Info")
 buffer = io.StringIO()
 df_filtered.info(buf=buffer)
 st.text(buffer.getvalue())
 
-# Null Summary
-st.subheader("🕳️ Top Null Columns")
-null_summary = df_filtered.isna().sum().sort_values(ascending=False)
-st.dataframe(null_summary[null_summary > 0].head(10))
+# -------------------------------
+# 🕳️ Null Summary
+# -------------------------------
+st.subheader("🕳️ Null Value Summary (Top 10)")
+nulls = df_filtered.isna().sum().sort_values(ascending=False)
+st.dataframe(nulls[nulls > 0].head(10))
 
-# Weekly Comparison (% Change)
-st.subheader("📉 Weekly Performance Summary")
-results = []
+# -------------------------------
+# 📈 Weekly Performance
+# -------------------------------
+st.subheader("📉 Weekly Stock Performance Summary")
+performance = []
 for symbol in symbols:
     try:
         data = df_filtered[symbol]['Close'].dropna()
@@ -63,68 +76,88 @@ for symbol in symbols:
         start_price = data.iloc[0]
         end_price = data.iloc[-1]
         change = ((end_price - start_price) / start_price) * 100
-        results.append({
+        performance.append({
             "Symbol": symbol,
             "Start Price": round(start_price, 2),
             "End Price": round(end_price, 2),
             "Change (%)": round(change, 2)
         })
-    except Exception:
+    except:
         continue
 
-df_perf = pd.DataFrame(results).sort_values(by="Change (%)")
+df_perf = pd.DataFrame(performance).sort_values(by="Change (%)")
 st.dataframe(df_perf)
 
-# Gainers & Losers
+# -------------------------------
+# 🔼 Gainers / 🔽 Losers
+# -------------------------------
 col1, col2 = st.columns(2)
 with col1:
     st.subheader("🔼 Top 5 Gainers")
     st.dataframe(df_perf.sort_values(by="Change (%)", ascending=False).head(5))
-
 with col2:
     st.subheader("🔽 Top 5 Losers")
     st.dataframe(df_perf.sort_values(by="Change (%)").head(5))
 
-# Combined chart for top gainers
-st.subheader("📈 Top Gainers Trend")
-top_n = st.slider("Select number of top gainers to chart", 1, 10, 3)
+# -------------------------------
+# 📈 Combined Chart - Gainers
+# -------------------------------
+st.subheader("📈 Compare Top Gainers")
+top_n = st.slider("Select number of top gainers", 1, 10, 3)
 top_symbols = df_perf.sort_values(by="Change (%)", ascending=False).head(top_n)["Symbol"].tolist()
 
-multi_chart_data = pd.DataFrame()
+gainer_data = pd.DataFrame()
 for symbol in top_symbols:
     try:
-        if symbol not in df_filtered.columns.levels[0]:
-            continue
         close_series = df_filtered[symbol]['Close'].dropna()
-        if close_series.empty:
-            continue
-        multi_chart_data[symbol] = close_series
-    except Exception:
+        if not close_series.empty:
+            gainer_data[symbol] = close_series
+    except:
         continue
 
-if not multi_chart_data.empty:
-    st.line_chart(multi_chart_data)
+if not gainer_data.empty:
+    st.line_chart(gainer_data)
 else:
-    st.info("No valid data to plot for gainers.")
+    st.info("No valid data for gainers.")
 
-# Combined chart for top losers
-st.subheader("📉 Top Losers Trend")
-bottom_n = st.slider("Select number of top losers to chart", 1, 10, 3)
+# -------------------------------
+# 📉 Combined Chart - Losers
+# -------------------------------
+st.subheader("📉 Compare Top Losers")
+bottom_n = st.slider("Select number of top losers", 1, 10, 3)
 bottom_symbols = df_perf.sort_values(by="Change (%)").head(bottom_n)["Symbol"].tolist()
 
-multi_chart_data_losers = pd.DataFrame()
+loser_data = pd.DataFrame()
 for symbol in bottom_symbols:
     try:
-        if symbol not in df_filtered.columns.levels[0]:
-            continue
         close_series = df_filtered[symbol]['Close'].dropna()
-        if close_series.empty:
-            continue
-        multi_chart_data_losers[symbol] = close_series
-    except Exception:
+        if not close_series.empty:
+            loser_data[symbol] = close_series
+    except:
         continue
 
-if not multi_chart_data_losers.empty:
-    st.line_chart(multi_chart_data_losers)
+if not loser_data.empty:
+    st.line_chart(loser_data)
 else:
-    st.info("No valid data to plot for losers.")
+    st.info("No valid data for losers.")
+
+# -------------------------------
+# 🕵️ Explore Stock by Time Period
+# -------------------------------
+st.markdown("---")
+st.subheader("🕵️ Explore Stock Trends by Period")
+
+selected_symbol = st.selectbox("🔍 Select a stock", symbols)
+selected_period = st.selectbox("🗓️ Select time range", ["1mo", "6mo", "1y", "ytd", "5y"])
+
+try:
+    st.info(f"Loading `{selected_symbol}` for `{selected_period}`...")
+    stock_df = yf.download(selected_symbol, period=selected_period, interval="1d", progress=False)
+
+    if stock_df.empty or "Close" not in stock_df:
+        st.warning("⚠️ No data found.")
+    else:
+        st.line_chart(stock_df["Close"], use_container_width=True)
+        st.dataframe(stock_df.tail(10))
+except Exception as e:
+    st.error(f"Error: {e}")
