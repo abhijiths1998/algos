@@ -3,6 +3,9 @@ import yfinance as yf
 import pandas as pd
 import datetime
 import io
+import smtplib
+from email.message import EmailMessage
+
 
 st.set_page_config(page_title="📊 NSE Dashboard", layout="wide")
 st.title("📊 NSE Stock Price Analysis Dashboard")
@@ -163,58 +166,105 @@ except Exception as e:
     st.error(f"Error: {e}")
 
 # -------------------------------------
-# 🧠 Actionable Insights and Suggestions
+# 🧠 Enhanced Actionable Insights (EDA)
 # -------------------------------------
 st.markdown("---")
-st.header("🧠 Actionable Insights")
+st.header("🧠 Actionable Insights & Visual Recommendations")
 
-insights = []
-
-# 1. Stocks down > 5% (Buy signal)
-buy_suggestions = df_perf[df_perf["Change (%)"] <= -5]
-if not buy_suggestions.empty:
-    insights.append(f"🟢 **{len(buy_suggestions)} stock(s)** dropped more than 5% — possible BUY opportunities:")
-    for row in buy_suggestions.itertuples():
-        insights.append(f" ➡️ `{row.Symbol}` dropped **{row._4:.2f}%** from ₹{row._2:.2f} to ₹{row._3:.2f}")
-
-# 2. Consistent uptrend stocks
-uptrend = []
-for symbol in symbols:
-    try:
-        data = df_filtered[symbol]['Close'].dropna()
-        if len(data) >= 5 and all(data[i] < data[i + 1] for i in range(len(data) - 5, len(data) - 1)):
-            uptrend.append(symbol)
-    except:
-        continue
-
-if uptrend:
-    insights.append(f"📈 **Consistent Uptrend Detected** in the last 5 days for: `{', '.join(uptrend)}`")
-
-# 3. Volatile stocks (std dev > threshold)
-volatility_alerts = []
-for symbol in symbols:
-    try:
-        data = df_filtered[symbol]['Close'].dropna()
-        if data.std() > 50:  # adjust threshold
-            volatility_alerts.append(f"{symbol} (std dev ₹{data.std():.2f})")
-    except:
-        continue
-
-if volatility_alerts:
-    insights.append("⚠️ High volatility detected in:")
-    for v in volatility_alerts:
-        insights.append(f" 🔄 {v}")
-
-# 4. Stocks with insufficient data
-low_data = df_perf[df_perf["Start Price"] == df_perf["End Price"]]
-if not low_data.empty:
-    insights.append("❗ Stocks with no price movement (may be suspended or inactive):")
-    for row in low_data.itertuples():
-        insights.append(f" ⛔ `{row.Symbol}`")
-
-# Show insights
-if insights:
-    for line in insights:
-        st.markdown(line)
+# 1️⃣ BUY Recommendations: dropped more than 5%
+st.subheader("🟢 BUY Suggestions: Stocks Dropped > 5%")
+buy_df = df_perf[df_perf["Change (%)"] <= -5].sort_values(by="Change (%)")
+if not buy_df.empty:
+    st.dataframe(buy_df)
 else:
-    st.success("✅ All stocks appear stable with no major anomalies.")
+    st.info("No stocks dropped more than 5% this week.")
+
+# 2️⃣ Uptrend Stocks in Last 5 Days
+st.subheader("📈 Consistent Uptrend (Last 5 Trading Days)")
+
+uptrend_stocks = []
+chart_data = pd.DataFrame()
+
+for symbol in symbols:
+    try:
+        prices = df_filtered[symbol]['Close'].dropna()
+        if len(prices) >= 5 and all(prices[-5 + i] < prices[-4 + i] for i in range(4)):
+            uptrend_stocks.append(symbol)
+            chart_data[symbol] = prices
+    except:
+        continue
+
+if uptrend_stocks:
+    st.success(f"Detected consistent upward trend in: {', '.join(uptrend_stocks)}")
+    st.line_chart(chart_data[uptrend_stocks])
+else:
+    st.info("No consistent uptrend stocks in the last 5 days.")
+
+# 3️⃣ Volatility Check
+st.subheader("⚠️ Volatile Stocks (Standard Deviation > ₹50)")
+
+vol_data = []
+for symbol in symbols:
+    try:
+        series = df_filtered[symbol]['Close'].dropna()
+        std_dev = series.std()
+        if std_dev > 50:
+            vol_data.append((symbol, round(std_dev, 2)))
+    except:
+        continue
+
+df_vol = pd.DataFrame(vol_data, columns=["Symbol", "Std Dev"]).sort_values(by="Std Dev", ascending=False)
+if not df_vol.empty:
+    st.bar_chart(df_vol.set_index("Symbol"))
+else:
+    st.info("No stocks detected with high volatility.")
+
+# 4️⃣ Inactive Stocks: No Price Change
+st.subheader("⛔ Inactive / Suspended Stocks")
+inactive_df = df_perf[df_perf["Start Price"] == df_perf["End Price"]]
+if not inactive_df.empty:
+    st.dataframe(inactive_df)
+else:
+    st.success("All stocks showed some price movement in the last 7 weeks.")
+
+# -------------------------------------
+# ✉️ Send Insights via Email
+# -------------------------------------
+st.subheader("📧 Email Insights")
+
+email = st.text_input("Enter your email address:")
+send_email = st.button("📤 Send Insights")
+
+if send_email and email:
+    try:
+        # Compose message
+        msg = EmailMessage()
+        msg["Subject"] = "📊 Your NSE Weekly Insights"
+        msg["From"] = "your_email@gmail.com"
+        msg["To"] = email
+
+        html_body = "<h2>NSE Weekly Insights</h2>"
+
+        if not buy_df.empty:
+            html_body += "<h3>🟢 BUY Recommendations</h3>" + buy_df.to_html(index=False)
+
+        if not inactive_df.empty:
+            html_body += "<h3>⛔ Inactive Stocks</h3>" + inactive_df.to_html(index=False)
+
+        if not df_vol.empty:
+            html_body += "<h3>⚠️ High Volatility Stocks</h3>" + df_vol.to_html(index=False)
+
+        msg.set_content("Please find your stock insights attached.")
+        msg.add_alternative(html_body, subtype="html")
+
+        # SMTP Send (using Gmail example)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login("your_email@gmail.com", "your_app_password")  # 🔐 Use app password
+            smtp.send_message(msg)
+
+        st.success(f"✅ Insights sent to {email}")
+    except Exception as e:
+        st.error(f"❌ Failed to send email: {e}")
+elif send_email:
+    st.warning("Please enter a valid email.")
+
