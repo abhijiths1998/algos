@@ -25,7 +25,7 @@ Welcome to the NSE Dashboard! Interact with the filters and visualizations to ex
 """)
 
 # Top 500 NSE symbols (sample subset for demo; replace with full list)
-nse_500_symbols = [
+top_250_stocks = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "ICICIBANK.NS", "INFY.NS",
     "HINDUNILVR.NS", "ITC.NS", "SBIN.NS", "BHARTIARTL.NS", "BAJFINANCE.NS",
     "LICI.NS", "KOTAKBANK.NS", "LT.NS", "AXISBANK.NS", "ASIANPAINT.NS",
@@ -90,15 +90,27 @@ with st.sidebar:
     st.header("\U0001F4CB Filters")
     st.markdown("""Customize your analysis with dynamic filters below:""")
     default_symbols = ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
-    valid_defaults = [s for s in default_symbols if s in nse_500_symbols]
-    master_symbols = st.multiselect("\U0001F50D Select Stocks (Master Filter)", options=nse_500_symbols, default=valid_defaults, key="master_symbols")
+if set(default_symbols).issubset(set(nse_500_symbols)):
+    master_symbols = st.multiselect(
+        "🔍 Select Stocks (Master Filter)",
+        options=nse_500_symbols,
+        default=default_symbols,
+        key="master_symbols"
+    )
+else:
+    st.warning("Some default symbols are not in the options. Please select manually.")
+    master_symbols = st.multiselect(
+        "🔍 Select Stocks (Master Filter)",
+        options=nse_500_symbols,
+        key="master_symbols"
+    )
     display_period = st.selectbox("Time Period", ["1mo", "3mo", "6mo", "1y", "5y"], index=1, key="display_period")
     compare_type = st.radio("Compare By", ["Top Gainers", "Top Losers"], horizontal=True, key="compare_type")
     show_raw_data = st.checkbox("\U0001F4DD Show Raw Data", key="show_raw_data")
     show_info = st.checkbox("\U0001F6C8 Show DataFrame Info", key="show_info")
     show_nulls = st.checkbox("\U0001F573 Show Null Summary", key="show_nulls")
     st.markdown("---")
-    st.caption("Developed by ChatGPT · Powered by Streamlit")
+    st.caption("Developed by abhivarma362 · Powered by Streamlit")
 
 # Download data
 st.info("\U0001F4E5 Downloading stock data...")
@@ -146,7 +158,8 @@ for symbol in master_symbols:
             "Symbol": symbol,
             "Start Price": round(start_price, 2),
             "End Price": round(end_price, 2),
-            "Change (%)": round(change, 2)
+            "Change (%)": round(change, 2),
+            "Recommendation": "BUY" if change <= -5 else "SELL"
         })
     except:
         continue
@@ -181,3 +194,41 @@ if not chart_df.empty:
     st.line_chart(chart_df)
 else:
     st.warning("No valid data available for chart.")
+
+# Side-by-side Area and Bar Charts
+st.subheader("📊 Visual Comparison: Price Trends vs Performance")
+chart_area_df = chart_df.copy()
+chart_bar_df = perf_df.set_index("Symbol")["Change (%)"]
+
+area_col, bar_col = st.columns(2)
+
+with area_col:
+    st.markdown("**📈 Area Chart - Price Trends**")
+    if not chart_area_df.empty:
+        st.area_chart(chart_area_df)
+    else:
+        st.info("No data available for area chart.")
+
+with bar_col:
+    st.markdown("**📊 Bar Chart - % Change**")
+    if not chart_bar_df.empty:
+        st.bar_chart(chart_bar_df[top_symbols])
+    else:
+        st.info("No data available for bar chart.")
+
+# EDA and Recommendation Summary
+st.subheader("\U0001F9E0 Exploratory Data Analysis & Insights")
+
+# Buy Recommendation Summary
+buy_df = perf_df[perf_df["Recommendation"] == "BUY"]
+if not buy_df.empty:
+    st.success("\U0001F4B8 Stocks recommended for BUY (dropped more than 5%):")
+    st.dataframe(buy_df)
+else:
+    st.info("No BUY recommendations this week. All stocks are relatively stable or gaining.")
+
+# Sell Recommendation Summary
+sell_df = perf_df[perf_df["Recommendation"] == "SELL"]
+if not sell_df.empty:
+    st.warning("\U0001F6AB Stocks marked for SELL:")
+    st.dataframe(sell_df)
