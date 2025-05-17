@@ -145,7 +145,7 @@ else:
     st.info("No valid data for losers.")
 
 
-st.header(page_title="📈 Stock Trend Visualizer", layout="wide")
+st.header(body="📈 Stock Trend Visualizer", divider="grey")
 st.title("📈 Explore Stock Trends by Period")
 
 # Define NSE stock symbols
