@@ -144,35 +144,36 @@ if not loser_data.empty:
 else:
     st.info("No valid data for losers.")
 
-# Section Header
-st.markdown("## 🧑‍💼 Explore Stock Trends by Period")
+# -- User Selection --
+st.markdown("## 📈 Explore Stock Trends by Period")
 selected_symbol = st.selectbox("🔍 Select a stock", options=symbols, index=0)
 selected_range = st.selectbox("📅 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"], index=0)
 
-# Fetch & Visualize
+# -- Data Fetching --
 if selected_symbol and selected_range:
     with st.spinner(f"Loading {selected_symbol} for {selected_range}..."):
         try:
-            df_period = yf.download(selected_symbol, period=selected_range, progress=False)
+            df = yf.download(selected_symbol, period=selected_range, progress=False)
 
-            if df_period.empty:
+            if df.empty:
                 st.warning(f"No data available for {selected_symbol} during {selected_range}.")
             else:
-                df_period = df_period.reset_index()
+                df = df.reset_index()
 
-                # 📊 Bar chart: Closing Price Over Time
+                # 📊 Bar Chart - Closing Prices
                 st.subheader("📊 Closing Price Over Time")
-                st.bar_chart(data=df_period.set_index("Date")["Close"])
+                st.bar_chart(df.set_index("Date")["Close"])
 
-                # 🧩 Pie chart: Volume Distribution (Last 10 Days)
+                # 🧩 Pie Chart - Volume Distribution (Last 10 Days)
                 st.subheader("🧩 Volume Share Over Last 10 Days")
-                df_vol = df_period.tail(10)
-                vol_series = df_vol.set_index("Date")["Volume"]
-                vol_series.index = vol_series.index.strftime("%b %d")
+
+                vol_df = df.tail(10)
+                vol_values = vol_df["Volume"].values.flatten()
+                vol_labels = vol_df["Date"].dt.strftime("%b %d").tolist()
 
                 fig, ax = plt.subplots()
-                ax.pie(vol_series, labels=vol_series.index, autopct="%1.1f%%", startangle=90)
-                ax.axis("equal")  # Equal aspect ratio ensures a circular pie
+                ax.pie(vol_values, labels=vol_labels, autopct="%1.1f%%", startangle=90)
+                ax.axis("equal")
                 st.pyplot(fig)
 
         except Exception as e:
