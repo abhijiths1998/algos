@@ -96,7 +96,7 @@ if search_symbol:
     st.subheader(f"🔍 Detailed Info for {search_symbol.upper()}")
     try:
         data = yf.download(search_symbol, start=start_week, end=today + datetime.timedelta(days=1))
-        if isinstance(data, pd.DataFrame) and not data.empty:
+        if isinstance(data, pd.DataFrame) and not data.empty and len(data['Close']) >= 2:
             last_week = round(data['Close'].iloc[0], 2)
             current = round(data['Close'].iloc[-1], 2)
             change = round(((current - last_week) / last_week) * 100, 2)
@@ -119,7 +119,7 @@ if search_symbol:
                 "52-Week Low": info.get("fiftyTwoWeekLow")
             })
         else:
-            st.warning("No data found for that symbol.")
+            st.warning("Not enough data found for that symbol.")
     except Exception as e:
         st.error(f"Error fetching data: {e}")
 
