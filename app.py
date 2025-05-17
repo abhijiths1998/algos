@@ -50,15 +50,18 @@ with st.spinner("Analyzing weekly stock performance..."):
             if df.empty or len(df) < 2:
                 continue
 
-            last_close = df['Close'].iloc[0]
-            current_close = df['Close'].iloc[-1]
+            last_close = round(df['Close'].iloc[0], 2)
+            current_close = round(df['Close'].iloc[-1], 2)
             change = round(((current_close - last_close) / last_close) * 100, 2)
+            emoji = "📉" if change < 0 else "📈"
+            stock_data = (ticker, last_close, current_close, f"{emoji} {change}%")
 
             if change <= -5:
-                buy_list.append((ticker, change))
+                buy_list.append(stock_data)
             elif change > 0:
-                sell_list.append((ticker, change))
-        except Exception:
+                sell_list.append(stock_data)
+
+        except Exception as e:
             continue
 
 # Summary Cards
@@ -74,16 +77,16 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("### 🟢 BUY Recommendations (Dropped > 5%)")
     if buy_list:
-        buy_df = pd.DataFrame(buy_list, columns=["Ticker", "% Change"]).sort_values(by="% Change")
-        st.dataframe(buy_df, use_container_width=True)
+        buy_df = pd.DataFrame(buy_list, columns=["Ticker", "Last Week Price", "Current Price", "% Change"])
+        st.dataframe(buy_df.sort_values(by="% Change"), use_container_width=True)
     else:
         st.success("No BUY recommendations this week.")
 
 with col2:
     st.markdown("### 🔴 SELL Recommendations (Price Increased)")
     if sell_list:
-        sell_df = pd.DataFrame(sell_list, columns=["Ticker", "% Change"]).sort_values(by="% Change", ascending=False)
-        st.dataframe(sell_df, use_container_width=True)
+        sell_df = pd.DataFrame(sell_list, columns=["Ticker", "Last Week Price", "Current Price", "% Change"])
+        st.dataframe(sell_df.sort_values(by="% Change", ascending=False), use_container_width=True)
     else:
         st.success("No SELL recommendations this week.")
 
