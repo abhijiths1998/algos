@@ -14,35 +14,48 @@ st.markdown("""
     <p style='text-align: center; color: grey;'>Automatically updated BUY/SELL signals based on 1-week % change from Yahoo Finance</p>
 """, unsafe_allow_html=True)
 
-# Step 1: Scrape BSE 200 tickers
-@st.cache_data
+# Step 1: Scrape & validate BSE 200 tickers
+@st.cache_data(show_spinner=False)
 def fetch_bse_200():
     url = "https://www.screener.in/screens/1/the-bse-200-companies/"
-    res = requests.get(url)
+    headers = {"User-Agent": "Mozilla/5.0"}
+    res = requests.get(url, headers=headers)
     soup = BeautifulSoup(res.text, "html.parser")
 
-    stock_elements = soup.select("a[href*='/company/']")
-    symbols = []
-    for tag in stock_elements:
-        name = tag.text.strip().upper().replace(" ", "")
-        if name and name.isalpha():
-            symbols.append(name + ".BO")
-        if len(symbols) >= 200:
+    tickers = []
+    company_links = soup.select("a[href^='/company/']")
+
+    for link in company_links:
+        symbol = link['href'].split("/")[2].upper() + ".BO"
+
+        try:
+            info = yf.Ticker(symbol).info
+            if "longName" in info and info["regularMarketPrice"] is not None:
+                tickers.append(symbol)
+        except Exception:
+            continue
+
+        if len(tickers) >= 200:
             break
-    return list(set(symbols))[:200]
+
+    return tickers
 
 tickers = fetch_bse_200()
+st.markdown(f"🔎 <b>{len(tickers)}</b> BSE stocks fetched from Screener.in and validated", unsafe_allow_html=True)
 
-st.markdown(f"🔎 <b>{len(tickers)}</b> BSE stocks fetched from Screener.in", unsafe_allow_html=True)
-
-# Set date range
+# Step 2: Adjust date to recent Friday if weekend
 today = datetime.date.today()
+if today.weekday() == 5:  # Saturday
+    today -= datetime.timedelta(days=1)
+elif today.weekday() == 6:  # Sunday
+    today -= datetime.timedelta(days=2)
+
 last_week = today - datetime.timedelta(days=7)
 st.markdown(f"📅 Comparing prices from <b>{last_week}</b> to <b>{today}</b>", unsafe_allow_html=True)
 
+# Step 3: Analyze stocks
 buy_list, sell_list = [], []
 
-# Step 2: Run analysis
 with st.spinner("Analyzing weekly stock performance..."):
     for ticker in tickers:
         try:
@@ -60,18 +73,17 @@ with st.spinner("Analyzing weekly stock performance..."):
                 buy_list.append(stock_data)
             elif change > 0:
                 sell_list.append(stock_data)
-
-        except Exception as e:
+        except Exception:
             continue
 
-# Summary Cards
+# Step 4: Summary cards
 st.markdown("### 🧾 Summary")
 colA, colB, colC = st.columns(3)
 colA.metric("📦 Total Stocks Processed", f"{len(tickers)}")
 colB.metric("🟢 BUY Signals", f"{len(buy_list)}")
 colC.metric("🔴 SELL Signals", f"{len(sell_list)}")
 
-# Step 3: Display recommendations
+# Step 5: Display recommendations
 col1, col2 = st.columns(2)
 
 with col1:
