@@ -144,26 +144,36 @@ if not loser_data.empty:
 else:
     st.info("No valid data for losers.")
 
-# -------------------------------
-# 🕵️ Explore Stock by Time Period
-# -------------------------------
-st.markdown("---")
-st.subheader("🕵️ Explore Stock Trends by Period")
+# Section Header
+st.markdown("## 🧑‍💼 Explore Stock Trends by Period")
+selected_symbol = st.selectbox("🔍 Select a stock", options=symbols, index=0)
+selected_range = st.selectbox("📅 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"], index=0)
 
-selected_symbol = st.selectbox("🔍 Select a stock", symbols)
-selected_period = st.selectbox("🗓️ Select time range", ["1mo", "6mo", "1y", "ytd", "5y"])
+# Fetch & Visualize
+if selected_symbol and selected_range:
+    with st.spinner(f"Loading {selected_symbol} for {selected_range}..."):
+        try:
+            df_period = yf.download(selected_symbol, period=selected_range, progress=False)
 
-try:
-    st.info(f"Loading `{selected_symbol}` for `{selected_period}`...")
-    stock_df = yf.download(selected_symbol, period=selected_period, interval="1d", progress=False)
+            if df_period.empty:
+                st.warning(f"No data available for {selected_symbol} during {selected_range}.")
+            else:
+                df_period = df_period.reset_index()
 
-    if stock_df.empty or "Close" not in stock_df:
-        st.warning("⚠️ No data found.")
-    else:
-        # st.line_chart(stock_df["Close"], use_container_width=True)
-        st.dataframe(stock_df.tail(10))
-except Exception as e:
-    st.error(f"Error: {e}")
+                # Bar chart of closing price
+                st.subheader("📊 Closing Price Over Time")
+                st.bar_chart(data=df_period.set_index("Date")["Close"])
+
+                # Optional: Pie chart of volume distribution
+                st.subheader("🧩 Volume Share Over Time")
+                df_volume = df_period.tail(10)  # last 10 days
+                df_volume["Date"] = df_volume["Date"].dt.strftime("%b %d")
+                st.pyplot(df_volume.set_index("Date")["Volume"].plot.pie(autopct="%.1f%%", figsize=(5, 5), title="Volume Distribution").get_figure())
+
+        except Exception as e:
+            st.error(f"❌ Error fetching data: {e}")
+else:
+    st.info("Please select both a stock and a time range.")
 
 # -------------------------------------
 # 🧠 Enhanced Actionable Insights (EDA)
