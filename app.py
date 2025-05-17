@@ -96,7 +96,7 @@ if search_symbol:
     st.subheader(f"🔍 Detailed Info for {search_symbol.upper()}")
     try:
         data = yf.download(search_symbol, start=start_week, end=today + datetime.timedelta(days=1))
-        if not data.empty:
+        if isinstance(data, pd.DataFrame) and not data.empty:
             last_week = round(data['Close'].iloc[0], 2)
             current = round(data['Close'].iloc[-1], 2)
             change = round(((current - last_week) / last_week) * 100, 2)
