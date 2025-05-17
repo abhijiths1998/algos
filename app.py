@@ -34,7 +34,7 @@ with st.spinner("Fetching and analyzing price data..."):
         try:
             data = yf.download(symbol, start=start_date, end=today, progress=False)
 
-            if data is None or data.shape[0] < 2:
+            if data is None or data.empty or data.shape[0] < 2:
                 skipped.append((symbol, "No price data"))
                 continue
 
