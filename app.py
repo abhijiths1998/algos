@@ -144,42 +144,37 @@ if not loser_data.empty:
 else:
     st.info("No valid data for losers.")
 
-# -- User Selection --
-st.markdown("## 📈 Explore Stock Trends by Period")
-selected_symbol = st.selectbox("🔍 Select a stock", options=symbols, index=0)
-selected_range = st.selectbox("📅 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"], index=0)
 
-# -- Data Fetching --
+# -- UI Layout --
+st.markdown("## 📊 Explore Stock Trends by Period")
+selected_symbol = st.selectbox("🔍 Select a stock", options=symbols)
+selected_range = st.selectbox("🗓️ Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"])
+
+# -- Data Fetching & Chart Display --
 if selected_symbol and selected_range:
     with st.spinner(f"Loading {selected_symbol} for {selected_range}..."):
         try:
             df = yf.download(selected_symbol, period=selected_range, progress=False)
 
             if df.empty:
-                st.warning(f"No data available for {selected_symbol} during {selected_range}.")
+                st.warning(f"No data found for {selected_symbol} during {selected_range}.")
             else:
                 df = df.reset_index()
+                df["Date"] = pd.to_datetime(df["Date"])
+                df.set_index("Date", inplace=True)
 
-                # 📊 Bar Chart - Closing Prices
-                st.subheader("📊 Closing Price Over Time")
-                st.bar_chart(df.set_index("Date")["Close"])
+                # 📈 Bar Chart - Closing Prices
+                st.subheader("📉 Closing Price Trend")
+                st.bar_chart(df["Close"])
 
-                # 🧩 Pie Chart - Volume Distribution (Last 10 Days)
-                st.subheader("🧩 Volume Share Over Last 10 Days")
-
-                vol_df = df.tail(10)
-                vol_values = vol_df["Volume"].values.flatten()
-                vol_labels = vol_df["Date"].dt.strftime("%b %d").tolist()
-
-                fig, ax = plt.subplots()
-                ax.pie(vol_values, labels=vol_labels, autopct="%1.1f%%", startangle=90)
-                ax.axis("equal")
-                st.pyplot(fig)
+                # 📈 Area Chart - Volume Trend
+                st.subheader("🔊 Trading Volume Trend")
+                st.area_chart(df["Volume"])
 
         except Exception as e:
-            st.error(f"❌ Error fetching data: {e}")
+            st.error(f"❌ Error loading stock data: {e}")
 else:
-    st.info("Please select both a stock and a time range.")
+    st.info("Please select both a stock and time range.")
 
 
 # -------------------------------------
