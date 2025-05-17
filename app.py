@@ -3,14 +3,13 @@ import yfinance as yf
 import pandas as pd
 import datetime
 import time
-import random
 
 # Streamlit config
 st.set_page_config(page_title="NSE Mini Signal App", layout="wide")
 st.title("📈 NSE Stock Signal Dashboard")
 st.markdown("""
 This dashboard gives you:
-- ✅ Simulated **Buy/Sell signals** based on random historical price shifts
+- ✅ Real **Buy/Sell signals** based on 7-day price difference
 - ✅ Choose how many stocks to scan (top N)
 - ✅ Search for specific stock symbol and get weekly price change & company financials
 """)
@@ -39,15 +38,20 @@ skipped = []
 all_rows = []
 
 with st.spinner("🔄 Fetching and collating all stock info (paginated)..."):
-    for i, symbol in enumerate(symbols_all):
+    for symbol in symbols_all:
         try:
-            df = yf.download(symbol, period="1d")
+            df = yf.download(symbol, start=start_week, end=today + datetime.timedelta(days=1))
             if not isinstance(df, pd.DataFrame) or df.empty or df['Close'].isna().all():
                 skipped.append(f"{symbol} - no valid close price")
                 continue
 
-            current_price = df['Close'].dropna().iloc[-1]
-            start_price = round(current_price * random.uniform(0.9, 1.1), 2)
+            close_prices = df['Close'].dropna()
+            if len(close_prices) < 2:
+                skipped.append(f"{symbol} - not enough data")
+                continue
+
+            start_price = round(close_prices.iloc[0], 2)
+            current_price = round(close_prices.iloc[-1], 2)
             change = round(((current_price - start_price) / start_price) * 100, 2)
             emoji = "📉" if change < 0 else "📈"
 
@@ -103,21 +107,24 @@ if search_symbol:
             st.markdown(f"**Change**: {'📉' if change < 0 else '📈'} {change}%")
 
             ticker = yf.Ticker(search_symbol)
-            info = ticker.info
+            info = ticker.info if ticker and isinstance(ticker.info, dict) else {}
             st.markdown("### Company Overview")
             st.write(info.get("longBusinessSummary", "No summary available."))
 
             st.markdown("### Key Metrics")
-            key_metrics = {
-                "Market Cap": info.get("marketCap"),
-                "Sector": info.get("sector"),
-                "Industry": info.get("industry"),
-                "PE Ratio (TTM)": info.get("trailingPE"),
-                "EPS (TTM)": info.get("trailingEps"),
-                "52-Week High": info.get("fiftyTwoWeekHigh"),
-                "52-Week Low": info.get("fiftyTwoWeekLow")
-            }
-            st.dataframe(pd.DataFrame(key_metrics.items(), columns=["Metric", "Value"]))
+            if info:
+                key_metrics = {
+                    "Market Cap": info.get("marketCap", "N/A"),
+                    "Sector": info.get("sector", "N/A"),
+                    "Industry": info.get("industry", "N/A"),
+                    "PE Ratio (TTM)": info.get("trailingPE", "N/A"),
+                    "EPS (TTM)": info.get("trailingEps", "N/A"),
+                    "52-Week High": info.get("fiftyTwoWeekHigh", "N/A"),
+                    "52-Week Low": info.get("fiftyTwoWeekLow", "N/A")
+                }
+                st.dataframe(pd.DataFrame(key_metrics.items(), columns=["Metric", "Value"]))
+            else:
+                st.warning("No detailed company metrics available.")
         else:
             st.warning("Not enough data found for that symbol.")
     except Exception as e:
