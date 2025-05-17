@@ -145,36 +145,52 @@ else:
     st.info("No valid data for losers.")
 
 
-# -- UI Layout --
-st.markdown("## 📊 Explore Stock Trends by Period")
-selected_symbol = st.selectbox("🔍 Select a stock", options=symbols)
-selected_range = st.selectbox("🗓️ Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"])
+st.set_page_config(page_title="📈 Stock Trend Visualizer", layout="wide")
+st.title("📈 Explore Stock Trends by Period")
 
-# -- Data Fetching & Chart Display --
-if selected_symbol and selected_range:
-    with st.spinner(f"Loading {selected_symbol} for {selected_range}..."):
-        try:
-            df = yf.download(selected_symbol, period=selected_range, progress=False)
+# Define NSE stock symbols
+# symbols = [
+#     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
+#     "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS"
+# ]
 
-            if df.empty:
-                st.warning(f"No data found for {selected_symbol} during {selected_range}.")
-            else:
-                df = df.reset_index()
-                df["Date"] = pd.to_datetime(df["Date"])
-                df.set_index("Date", inplace=True)
+# Multi-select dropdown for stocks
+selected_symbols = st.multiselect("🔍 Select one or more stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
+selected_range = st.selectbox("📆 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"])
 
-                # 📈 Bar Chart - Closing Prices
-                st.subheader("📉 Closing Price Trend")
-                st.bar_chart(df["Close"])
+if selected_symbols and selected_range:
+    with st.spinner("📊 Fetching data..."):
+        df = yf.download(selected_symbols, period=selected_range, group_by="ticker", progress=False)
 
-                # 📈 Area Chart - Volume Trend
-                st.subheader("🔊 Trading Volume Trend")
-                st.area_chart(df["Volume"])
+    # --- Closing Prices ---
+    st.subheader("📉 Closing Price Trend")
+    close_df = pd.DataFrame()
 
-        except Exception as e:
-            st.error(f"❌ Error loading stock data: {e}")
-else:
-    st.info("Please select both a stock and time range.")
+    for symbol in selected_symbols:
+        if symbol in df.columns.get_level_values(0):
+            close_series = df[symbol]["Close"].dropna()
+            close_series.name = symbol
+            close_df = pd.concat([close_df, close_series], axis=1)
+
+    if not close_df.empty:
+        st.line_chart(close_df)
+    else:
+        st.warning("No valid close price data available.")
+
+    # --- Volume Trends ---
+    st.subheader("🔊 Trading Volume Trend")
+    volume_df = pd.DataFrame()
+
+    for symbol in selected_symbols:
+        if symbol in df.columns.get_level_values(0):
+            volume_series = df[symbol]["Volume"].dropna()
+            volume_series.name = symbol
+            volume_df = pd.concat([volume_df, volume_series], axis=1)
+
+    if not volume_df.empty:
+        st.area_chart(volume_df)
+    else:
+        st.warning("No volume data available.")
 
 
 # -------------------------------------
