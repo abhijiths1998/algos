@@ -5,7 +5,7 @@ import datetime
 import io
 import smtplib
 from email.message import EmailMessage
-
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="📊 NSE Dashboard", layout="wide")
 st.title("📊 NSE Stock Price Analysis Dashboard")
@@ -160,20 +160,26 @@ if selected_symbol and selected_range:
             else:
                 df_period = df_period.reset_index()
 
-                # Bar chart of closing price
+                # 📊 Bar chart: Closing Price Over Time
                 st.subheader("📊 Closing Price Over Time")
                 st.bar_chart(data=df_period.set_index("Date")["Close"])
 
-                # Optional: Pie chart of volume distribution
-                st.subheader("🧩 Volume Share Over Time")
-                df_volume = df_period.tail(10)  # last 10 days
-                df_volume["Date"] = df_volume["Date"].dt.strftime("%b %d")
-                st.pyplot(df_volume.set_index("Date")["Volume"].plot.pie(autopct="%.1f%%", figsize=(5, 5), title="Volume Distribution").get_figure())
+                # 🧩 Pie chart: Volume Distribution (Last 10 Days)
+                st.subheader("🧩 Volume Share Over Last 10 Days")
+                df_vol = df_period.tail(10)
+                vol_series = df_vol.set_index("Date")["Volume"]
+                vol_series.index = vol_series.index.strftime("%b %d")
+
+                fig, ax = plt.subplots()
+                ax.pie(vol_series, labels=vol_series.index, autopct="%1.1f%%", startangle=90)
+                ax.axis("equal")  # Equal aspect ratio ensures a circular pie
+                st.pyplot(fig)
 
         except Exception as e:
             st.error(f"❌ Error fetching data: {e}")
 else:
     st.info("Please select both a stock and a time range.")
+
 
 # -------------------------------------
 # 🧠 Enhanced Actionable Insights (EDA)
