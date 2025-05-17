@@ -25,7 +25,7 @@ Welcome to the NSE Dashboard! Interact with the filters and visualizations to ex
 """)
 
 # Top 500 NSE symbols (sample subset for demo; replace with full list)
-top_250_stocks = [
+nse_500_symbols = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "ICICIBANK.NS", "INFY.NS",
     "HINDUNILVR.NS", "ITC.NS", "SBIN.NS", "BHARTIARTL.NS", "BAJFINANCE.NS",
     "LICI.NS", "KOTAKBANK.NS", "LT.NS", "AXISBANK.NS", "ASIANPAINT.NS",
