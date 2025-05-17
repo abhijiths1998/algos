@@ -21,36 +21,38 @@ symbols = [
     "HINDALCO.NS", "TATASTEEL.NS", "APOLLOHOSP.NS", "DMART.NS", "PIDILITIND.NS"
 ]
 
+# Download data
 st.info("📥 Downloading 3-month price history from Yahoo Finance...")
 df_stocks = yf.download(symbols, period="3mo", group_by="ticker", progress=False)
 
-# Make sure index is datetime
+# Validate datetime index
 if not isinstance(df_stocks.index, pd.DatetimeIndex):
-    st.error("Date index missing. Cannot proceed.")
+    st.error("❌ Data index is not datetime. Cannot continue.")
     st.stop()
 
 # Filter last 7 weeks
 latest_date = df_stocks.index.max()
 start_date = latest_date - datetime.timedelta(weeks=7)
 df_filtered = df_stocks[df_stocks.index >= start_date]
-st.markdown(f"📅 **Date Range**: {start_date.date()} → {latest_date.date()}")
 
-# Show raw data
-st.subheader("🧾 Filtered 7-Week Raw Data")
+st.markdown(f"📅 **Date Range**: `{start_date.date()} → {latest_date.date()}`")
+
+# Raw DataFrame
+st.subheader("📦 7-Week Raw Data")
 st.dataframe(df_filtered)
 
-# Show DataFrame info safely
+# DataFrame Info
 st.subheader("ℹ️ DataFrame Info")
 buffer = io.StringIO()
 df_filtered.info(buf=buffer)
 st.text(buffer.getvalue())
 
-# 🧮 Null summary
-st.subheader("🕳️ Null Value Summary (Top 10 columns with NaNs)")
+# Null Summary
+st.subheader("🕳️ Top Null Columns")
 null_summary = df_filtered.isna().sum().sort_values(ascending=False)
 st.dataframe(null_summary[null_summary > 0].head(10))
 
-# 📈 Weekly % Change for each symbol
+# Weekly Comparison (% Change)
 st.subheader("📉 Weekly Performance Summary")
 results = []
 for symbol in symbols:
@@ -67,13 +69,13 @@ for symbol in symbols:
             "End Price": round(end_price, 2),
             "Change (%)": round(change, 2)
         })
-    except Exception as e:
+    except Exception:
         continue
 
-df_perf = pd.DataFrame(results).sort_values(by="Change (%)", ascending=True)
+df_perf = pd.DataFrame(results).sort_values(by="Change (%)")
 st.dataframe(df_perf)
 
-# 🟢 Top Gainers / 🔴 Top Losers
+# Gainers & Losers
 col1, col2 = st.columns(2)
 with col1:
     st.subheader("🔼 Top 5 Gainers")
@@ -83,12 +85,46 @@ with col2:
     st.subheader("🔽 Top 5 Losers")
     st.dataframe(df_perf.sort_values(by="Change (%)").head(5))
 
-# 📊 Chart toggle
-if st.checkbox("📈 Show line chart for Top 3 Gainers"):
-    top_symbols = df_perf.sort_values(by="Change (%)", ascending=False).head(3)["Symbol"].tolist()
-    for symbol in top_symbols:
-        try:
-            chart_data = df_filtered[symbol]['Close'].dropna()
-            st.line_chart(chart_data.rename(symbol))
-        except Exception:
-            st.warning(f"Couldn't chart {symbol}")
+# Combined chart for top gainers
+st.subheader("📈 Top Gainers Trend")
+top_n = st.slider("Select number of top gainers to chart", 1, 10, 3)
+top_symbols = df_perf.sort_values(by="Change (%)", ascending=False).head(top_n)["Symbol"].tolist()
+
+multi_chart_data = pd.DataFrame()
+for symbol in top_symbols:
+    try:
+        if symbol not in df_filtered.columns.levels[0]:
+            continue
+        close_series = df_filtered[symbol]['Close'].dropna()
+        if close_series.empty:
+            continue
+        multi_chart_data[symbol] = close_series
+    except Exception:
+        continue
+
+if not multi_chart_data.empty:
+    st.line_chart(multi_chart_data)
+else:
+    st.info("No valid data to plot for gainers.")
+
+# Combined chart for top losers
+st.subheader("📉 Top Losers Trend")
+bottom_n = st.slider("Select number of top losers to chart", 1, 10, 3)
+bottom_symbols = df_perf.sort_values(by="Change (%)").head(bottom_n)["Symbol"].tolist()
+
+multi_chart_data_losers = pd.DataFrame()
+for symbol in bottom_symbols:
+    try:
+        if symbol not in df_filtered.columns.levels[0]:
+            continue
+        close_series = df_filtered[symbol]['Close'].dropna()
+        if close_series.empty:
+            continue
+        multi_chart_data_losers[symbol] = close_series
+    except Exception:
+        continue
+
+if not multi_chart_data_losers.empty:
+    st.line_chart(multi_chart_data_losers)
+else:
+    st.info("No valid data to plot for losers.")
