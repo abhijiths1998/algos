@@ -219,7 +219,7 @@ st.title("📈 Explore Stock Trends by Period")
 
 # Multi-select dropdown for stocks
 selected_symbols = st.multiselect("🔍 Select one or more stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"],key = "Stocks to visualize")
-selected_range = st.selectbox("📆 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"], key = "Period)
+selected_range = st.selectbox("📆 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"], key = "Period")
 
 if selected_symbols and selected_range:
     with st.spinner("📊 Fetching data..."):
