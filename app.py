@@ -169,14 +169,24 @@ perf_df = pd.DataFrame(performance).sort_values(by="Change (%)", ascending=(comp
 st.dataframe(perf_df)
 
 # Side-by-side gainers & losers
+sorted_perf = perf_df.sort_values(by="Change (%)", ascending=False).reset_index(drop=True)
+top_gainers = sorted_perf.head(5)
+
+sorted_perf_losers = perf_df.sort_values(by="Change (%)", ascending=True).reset_index(drop=True)
+top_losers = sorted_perf_losers.head(5)
+
+# Remove duplicates (optional)
+common_symbols = set(top_gainers["Symbol"]).intersection(set(top_losers["Symbol"]))
+top_losers = top_losers[~top_losers["Symbol"].isin(common_symbols)]
+
 col1, col2 = st.columns(2)
 with col1:
-    st.markdown("### \U0001F53C Top 5 Gainers")
-    st.dataframe(perf_df.sort_values(by="Change (%)", ascending=False).head(5))
+    st.markdown("### 🔼 Top 5 Gainers")
+    st.dataframe(top_gainers)
 
 with col2:
-    st.markdown("### \U0001F53D Top 5 Losers")
-    st.dataframe(perf_df.sort_values(by="Change (%)").head(5))
+    st.markdown("### 🔽 Top 5 Losers")
+    st.dataframe(top_losers)
 
 # Charting selected comparison type
 chart_type = "Gainers" if compare_type == "Top Gainers" else "Losers"
