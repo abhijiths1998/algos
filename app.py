@@ -50,6 +50,7 @@ with st.spinner("🔄 Fetching and collating all stock info (paginated)..."):
                 skipped.append(f"{symbol} - not enough data")
                 continue
 
+            # This line now uses historical data instead of random simulation — good update for realism.
             start_price = round(close_prices.iloc[0], 2)
             current_price = round(close_prices.iloc[-1], 2)
             change = round(((current_price - start_price) / start_price) * 100, 2)
@@ -106,25 +107,28 @@ if search_symbol:
             st.markdown(f"**Current price**: ₹{current}")
             st.markdown(f"**Change**: {'📉' if change < 0 else '📈'} {change}%")
 
-            ticker = yf.Ticker(search_symbol)
-            info = ticker.info if ticker and isinstance(ticker.info, dict) else {}
-            st.markdown("### Company Overview")
-            st.write(info.get("longBusinessSummary", "No summary available."))
+            try:
+                ticker = yf.Ticker(search_symbol)
+                info = ticker.info if ticker and isinstance(ticker.info, dict) else {}
+                st.markdown("### Company Overview")
+                st.write(info.get("longBusinessSummary", "No summary available."))
 
-            st.markdown("### Key Metrics")
-            if info:
-                key_metrics = {
-                    "Market Cap": info.get("marketCap", "N/A"),
-                    "Sector": info.get("sector", "N/A"),
-                    "Industry": info.get("industry", "N/A"),
-                    "PE Ratio (TTM)": info.get("trailingPE", "N/A"),
-                    "EPS (TTM)": info.get("trailingEps", "N/A"),
-                    "52-Week High": info.get("fiftyTwoWeekHigh", "N/A"),
-                    "52-Week Low": info.get("fiftyTwoWeekLow", "N/A")
-                }
-                st.dataframe(pd.DataFrame(key_metrics.items(), columns=["Metric", "Value"]))
-            else:
-                st.warning("No detailed company metrics available.")
+                st.markdown("### Key Metrics")
+                if info:
+                    key_metrics = {
+                        "Market Cap": info.get("marketCap", "N/A"),
+                        "Sector": info.get("sector", "N/A"),
+                        "Industry": info.get("industry", "N/A"),
+                        "PE Ratio (TTM)": info.get("trailingPE", "N/A"),
+                        "EPS (TTM)": info.get("trailingEps", "N/A"),
+                        "52-Week High": info.get("fiftyTwoWeekHigh", "N/A"),
+                        "52-Week Low": info.get("fiftyTwoWeekLow", "N/A")
+                    }
+                    st.dataframe(pd.DataFrame(key_metrics.items(), columns=["Metric", "Value"]))
+                else:
+                    st.warning("No detailed company metrics available.")
+            except Exception as info_err:
+                st.warning(f"Unable to fetch detailed info: {info_err}")
         else:
             st.warning("Not enough data found for that symbol.")
     except Exception as e:
