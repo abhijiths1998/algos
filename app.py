@@ -52,11 +52,11 @@ with st.spinner("🔄 Fetching stock prices..."):
     for symbol in symbols:
         try:
             df = yf.download(symbol, period="1d")
-            if not isinstance(df, pd.DataFrame) or df.empty:
-                skipped.append(f"{symbol} - no data")
+            if not isinstance(df, pd.DataFrame) or df.empty or df['Close'].isna().all():
+                skipped.append(f"{symbol} - no valid close price")
                 continue
 
-            current_price = round(df['Close'].iloc[-1], 2)
+            current_price = df['Close'].dropna().iloc[-1]
             start_price = round(current_price * random.uniform(0.9, 1.1), 2)
             change = round(((current_price - start_price) / start_price) * 100, 2)
             emoji = "📉" if change < 0 else "📈"
@@ -96,9 +96,9 @@ if search_symbol:
     st.subheader(f"🔍 Detailed Info for {search_symbol.upper()}")
     try:
         data = yf.download(search_symbol, start=start_week, end=today + datetime.timedelta(days=1))
-        if isinstance(data, pd.DataFrame) and not data.empty and len(data['Close']) >= 2:
-            last_week = round(data['Close'].iloc[0], 2)
-            current = round(data['Close'].iloc[-1], 2)
+        if isinstance(data, pd.DataFrame) and not data.empty and len(data['Close'].dropna()) >= 2:
+            last_week = round(data['Close'].dropna().iloc[0], 2)
+            current = round(data['Close'].dropna().iloc[-1], 2)
             change = round(((current - last_week) / last_week) * 100, 2)
             st.markdown(f"**Price last week**: ₹{last_week}")
             st.markdown(f"**Current price**: ₹{current}")
