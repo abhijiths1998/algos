@@ -23,33 +23,23 @@ start_week = today - datetime.timedelta(days=7)
 
 st.markdown(f"📅 Today (adjusted): **{today}**")
 
-# Select number of top stocks to process
-count = st.number_input("🔢 Enter how many top NSE stocks to scan (up to 50)", min_value=1, max_value=50, value=10)
-
 # Input symbol for search
 search_symbol = st.text_input("🔍 Enter NSE symbol to get detailed info (e.g. RELIANCE.NS)")
 
-# Top NSE 50 stocks
+# Full stock list to paginate through
 symbols_all = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
-    "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
-    "KOTAKBANK.NS", "ASIANPAINT.NS", "SUNPHARMA.NS", "WIPRO.NS", "NESTLEIND.NS",
-    "TITAN.NS", "TECHM.NS", "MARUTI.NS", "POWERGRID.NS", "NTPC.NS",
-    "ULTRACEMCO.NS", "HCLTECH.NS", "BHARTIARTL.NS", "ADANIENT.NS", "COALINDIA.NS",
-    "JSWSTEEL.NS", "HINDUNILVR.NS", "CIPLA.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS",
-    "HDFCLIFE.NS", "TATACONSUM.NS", "BPCL.NS", "DIVISLAB.NS", "DRREDDY.NS",
-    "EICHERMOT.NS", "GRASIM.NS", "HEROMOTOCO.NS", "M&M.NS", "SHREECEM.NS",
-    "ONGC.NS", "BRITANNIA.NS", "SBILIFE.NS", "UPL.NS", "ICICIPRULI.NS",
-    "HINDALCO.NS", "TATASTEEL.NS", "APOLLOHOSP.NS", "DMART.NS", "PIDILITIND.NS"
+    "ITC.NS", "SBIN.NS", "LT.NS", "AXISBANK.NS", "BAJFINANCE.NS"
 ]
-symbols = symbols_all[:count]
 
+# Paginate through all symbols and collect their info
 buy_list = []
 sell_list = []
 skipped = []
+all_rows = []
 
-with st.spinner("🔄 Fetching stock prices..."):
-    for symbol in symbols:
+with st.spinner("🔄 Fetching and collating all stock info (paginated)..."):
+    for i, symbol in enumerate(symbols_all):
         try:
             df = yf.download(symbol, period="1d")
             if not isinstance(df, pd.DataFrame) or df.empty or df['Close'].isna().all():
@@ -61,35 +51,43 @@ with st.spinner("🔄 Fetching stock prices..."):
             change = round(((current_price - start_price) / start_price) * 100, 2)
             emoji = "📉" if change < 0 else "📈"
 
-            row = (symbol, start_price, current_price, f"{emoji} {change}%")
+            row = (symbol, start_price, current_price, change, emoji)
+            all_rows.append(row)
+
             if change <= -5:
                 buy_list.append(row)
             elif change > 0:
                 sell_list.append(row)
 
             time.sleep(0.1)
-
         except Exception as e:
             skipped.append(f"{symbol} - error: {e}")
+
+# Create final DataFrame from all collected stock info
+df_all = pd.DataFrame(all_rows, columns=["Symbol", "Start Price", "Current Price", "% Change", "Trend"])
 
 # Weekly Buy/Sell Output
 col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("🟢 BUY Recommendations")
-    if buy_list:
-        df_buy = pd.DataFrame(buy_list, columns=["Symbol", "Start Price", "Current Price", "% Change"])
+    df_buy = pd.DataFrame(buy_list, columns=["Symbol", "Start Price", "Current Price", "% Change", "Trend"])
+    if not df_buy.empty:
         st.dataframe(df_buy.sort_values(by="% Change"), use_container_width=True)
     else:
         st.info("No BUY recommendations.")
 
 with col2:
     st.subheader("🔴 SELL Recommendations")
-    if sell_list:
-        df_sell = pd.DataFrame(sell_list, columns=["Symbol", "Start Price", "Current Price", "% Change"])
+    df_sell = pd.DataFrame(sell_list, columns=["Symbol", "Start Price", "Current Price", "% Change", "Trend"])
+    if not df_sell.empty:
         st.dataframe(df_sell.sort_values(by="% Change", ascending=False), use_container_width=True)
     else:
         st.info("No SELL recommendations.")
+
+# Show full dataframe if user wants to see all scanned data
+st.subheader("📋 All Scanned Stock Data")
+st.dataframe(df_all.sort_values(by="% Change", ascending=True), use_container_width=True)
 
 # Specific symbol detail view
 if search_symbol:
