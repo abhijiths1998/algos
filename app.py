@@ -2,151 +2,92 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import datetime
-import time
 
-# Streamlit config
-st.set_page_config(page_title="NSE Mini Signal App", layout="wide")
-st.title("📈 NSE Stock Signal Dashboard")
-st.markdown("""
-This dashboard gives you:
-- ✅ Real **Buy/Sell signals** based on 7-day price difference
-- ✅ Choose how many stocks to scan (top N)
-- ✅ Search for specific stock symbol and get weekly price change & company financials
-""")
+st.set_page_config(page_title="📉 NSE Stock Drop Scanner", layout="wide")
+st.title("📉 NSE Weekly Stock Price Comparison")
+st.markdown("Compare **latest closing price** with **last week's closing** for multiple stocks.")
 
-# Today's date (adjust if weekend)
-today = datetime.date.today()
-if today.weekday() >= 5:
-    today -= datetime.timedelta(days=today.weekday() - 4)
-start_week = today - datetime.timedelta(days=7)
-
-st.markdown(f"📅 Today (adjusted): **{today}**")
-
-# Input symbol for search
-search_symbol = st.text_input("🔍 Enter NSE symbol to get detailed info (e.g. RELIANCE.NS)")
-
-# Full stock list to paginate through
-symbols_all = [
+# Load stock list
+symbols = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
-    "ITC.NS", "SBIN.NS", "LT.NS", "AXISBANK.NS", "BAJFINANCE.NS",
-    "HINDUNILVR.NS", "BHARTIARTL.NS", "KOTAKBANK.NS",  # "HDFC.NS" removed
-    "ASIANPAINT.NS", "MARUTI.NS", "HCLTECH.NS", "TATAMOTORS.NS",
-    "SUNPHARMA.NS", "NTPC.NS", "TITAN.NS", "ONGC.NS", "NESTLEIND.NS",
-    "TATASTEEL.NS", "ULTRACEMCO.NS", "BAJAJFINSV.NS", "JSWSTEEL.NS",
-    "ADANIENT.NS", "POWERGRID.NS", "M&M.NS",  # ✅ Use "M&M.NS" instead of "MAHINDRA.NS"
-    "HINDALCO.NS", "CIPLA.NS", "DRREDDY.NS", "WIPRO.NS", "COALINDIA.NS",
-    "INDUSINDBK.NS", "GRASIM.NS", "HDFCLIFE.NS", "TECHM.NS", "BPCL.NS",
-    "BAJAJ-AUTO.NS", "DIVISLAB.NS", "EICHERMOT.NS", "APOLLOHOSP.NS",
-    "SBILIFE.NS", "UPL.NS", "HEROMOTOCO.NS", "BRITANNIA.NS",
-    "ADANIPORTS.NS", "TATACONSUM.NS"
+    "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
+    "KOTAKBANK.NS", "ASIANPAINT.NS", "SUNPHARMA.NS", "WIPRO.NS", "NESTLEIND.NS",
+    "TITAN.NS", "TECHM.NS", "MARUTI.NS", "POWERGRID.NS", "NTPC.NS",
+    "ULTRACEMCO.NS", "HCLTECH.NS", "BHARTIARTL.NS", "ADANIENT.NS", "COALINDIA.NS",
+    "JSWSTEEL.NS", "HINDUNILVR.NS", "CIPLA.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS",
+    "HDFCLIFE.NS", "TATACONSUM.NS", "BPCL.NS", "DIVISLAB.NS", "DRREDDY.NS",
+    "EICHERMOT.NS", "GRASIM.NS", "HEROMOTOCO.NS", "M&M.NS", "SHREECEM.NS",
+    "ONGC.NS", "BRITANNIA.NS", "SBILIFE.NS", "UPL.NS", "ICICIPRULI.NS",
+    "HINDALCO.NS", "TATASTEEL.NS", "APOLLOHOSP.NS", "DMART.NS", "PIDILITIND.NS"
 ]
 
+# Step 1: Download 3 months of stock data
+st.info("Fetching stock data for last 3 months from Yahoo Finance...")
+df_stocks = yf.download(symbols, period="3mo", group_by="ticker", progress=False)
 
-# Paginate through all symbols and collect their info
-buy_list = []
-sell_list = []
-skipped = []
-all_rows = []
+# Step 2: Filter last 7 weeks
+latest_date = df_stocks.index.max()
+start_date = latest_date - datetime.timedelta(weeks=7)
+df_filtered = df_stocks[df_stocks.index >= start_date]
 
-with st.spinner("🔄 Fetching and collating all stock info (paginated)..."):
-    for symbol in symbols_all:
-        try:
-            df = yf.download(symbol, start=start_week, end=today + datetime.timedelta(days=1))
-            if not isinstance(df, pd.DataFrame) or df.empty or df['Close'].isna().all():
-                skipped.append(f"{symbol} - no valid close price")
-                continue
+# Step 3: Compare last week's close vs latest close
+comparison_data = []
 
-            close_prices = df['Close'].dropna()
-            if len(close_prices) < 2:
-                skipped.append(f"{symbol} - not enough data")
-                continue
-
-            # This line now uses historical data instead of random simulation — good update for realism.
-            start_price = round(close_prices.iloc[0], 2)
-            current_price = round(close_prices.iloc[-1], 2)
-            change = round(((current_price - start_price) / start_price) * 100, 2)
-            emoji = "📉" if change < 0 else "📈"
-
-            row = (symbol, start_price, current_price, change, emoji)
-            all_rows.append(row)
-
-            if change <= -5:
-                buy_list.append(row)
-            elif change > 0:
-                sell_list.append(row)
-
-            time.sleep(0.1)
-        except Exception as e:
-            skipped.append(f"{symbol} - error: {e}")
-
-# Create final DataFrame from all collected stock info
-df_all = pd.DataFrame(all_rows, columns=["Symbol", "Start Price", "Current Price", "% Change", "Trend"])
-
-# Weekly Buy/Sell Output
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("🟢 BUY Recommendations")
-    df_buy = pd.DataFrame(buy_list, columns=["Symbol", "Start Price", "Current Price", "% Change", "Trend"])
-    if not df_buy.empty:
-        st.dataframe(df_buy.sort_values(by="% Change"), use_container_width=True)
-    else:
-        st.info("No BUY recommendations.")
-
-with col2:
-    st.subheader("🔴 SELL Recommendations")
-    df_sell = pd.DataFrame(sell_list, columns=["Symbol", "Start Price", "Current Price", "% Change", "Trend"])
-    if not df_sell.empty:
-        st.dataframe(df_sell.sort_values(by="% Change", ascending=False), use_container_width=True)
-    else:
-        st.info("No SELL recommendations.")
-
-# Show full dataframe if user wants to see all scanned data
-st.subheader("📋 All Scanned Stock Data")
-st.dataframe(df_all.sort_values(by="% Change", ascending=True), use_container_width=True)
-
-# Specific symbol detail view
-if search_symbol:
-    st.subheader(f"🔍 Detailed Info for {search_symbol.upper()}")
+for symbol in symbols:
     try:
-        data = yf.download(search_symbol, start=start_week, end=today + datetime.timedelta(days=1))
-        if isinstance(data, pd.DataFrame) and not data.empty and len(data['Close'].dropna()) >= 2:
-            last_week = round(data['Close'].dropna().iloc[0], 2)
-            current = round(data['Close'].dropna().iloc[-1], 2)
-            change = round(((current - last_week) / last_week) * 100, 2)
-            st.markdown(f"**Price last week**: ₹{last_week}")
-            st.markdown(f"**Current price**: ₹{current}")
-            st.markdown(f"**Change**: {'📉' if change < 0 else '📈'} {change}%")
+        close_prices = df_filtered[symbol]['Close'].dropna()
+        if len(close_prices) < 2:
+            continue
 
-            try:
-                ticker = yf.Ticker(search_symbol)
-                info = ticker.info if ticker and isinstance(ticker.info, dict) else {}
-                st.markdown("### Company Overview")
-                st.write(info.get("longBusinessSummary", "No summary available."))
+        current_price = close_prices.iloc[-1]
+        last_week_price = close_prices.iloc[-6] if len(close_prices) >= 6 else close_prices.iloc[0]
 
-                st.markdown("### Key Metrics")
-                if info:
-                    key_metrics = {
-                        "Market Cap": info.get("marketCap", "N/A"),
-                        "Sector": info.get("sector", "N/A"),
-                        "Industry": info.get("industry", "N/A"),
-                        "PE Ratio (TTM)": info.get("trailingPE", "N/A"),
-                        "EPS (TTM)": info.get("trailingEps", "N/A"),
-                        "52-Week High": info.get("fiftyTwoWeekHigh", "N/A"),
-                        "52-Week Low": info.get("fiftyTwoWeekLow", "N/A")
-                    }
-                    st.dataframe(pd.DataFrame(key_metrics.items(), columns=["Metric", "Value"]))
-                else:
-                    st.warning("No detailed company metrics available.")
-            except Exception as info_err:
-                st.warning(f"Unable to fetch detailed info: {info_err}")
-        else:
-            st.warning("Not enough data found for that symbol.")
+        change = current_price - last_week_price
+        pct_change = (change / last_week_price) * 100
+
+        row = {
+            "Symbol": symbol,
+            "Last Week Close": round(last_week_price, 2),
+            "Current Close": round(current_price, 2),
+            "Change (₹)": round(change, 2),
+            "Change (%)": round(pct_change, 2)
+        }
+
+        comparison_data.append(row)
+
     except Exception as e:
-        st.error(f"Error fetching data: {e}")
+        st.warning(f"{symbol} skipped due to error: {e}")
 
-# Skipped Stocks
-if skipped:
-    with st.expander("⚠️ Skipped Stocks / Errors"):
-        for s in skipped:
-            st.text(s)
+# Step 4: Store in session state
+df_all = pd.DataFrame(comparison_data)
+st.session_state.df_all = df_all
+
+# Step 5: Show all stock price differences
+st.subheader("📊 All Stock Price Differences")
+if df_all.empty:
+    st.warning("No data available.")
+else:
+    st.dataframe(df_all.sort_values(by="Change (%)"), use_container_width=True)
+
+# Step 6: Buy recommendations
+st.subheader("🟢 Buy Recommendations (Drop > 5%)")
+df_buy = df_all[df_all["Change (%)"] <= -5]
+if df_buy.empty:
+    st.info("No stocks dropped more than 5%.")
+else:
+    st.dataframe(df_buy.sort_values(by="Change (%)"), use_container_width=True)
+
+# Step 7: Search by symbol
+st.subheader("🔍 Search a Stock")
+search = st.text_input("Enter symbol (e.g., TCS.NS)").upper()
+if search:
+    result = st.session_state.df_all[st.session_state.df_all["Symbol"].str.contains(search)]
+    if not result.empty:
+        st.dataframe(result, use_container_width=True)
+    else:
+        st.warning("No match found.")
+
+# Step 8: Download option
+if not df_all.empty:
+    csv = df_all.to_csv(index=False)
+    st.download_button("📥 Download All Data", data=csv, file_name="stock_diff.csv", mime="text/csv")
