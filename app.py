@@ -8,7 +8,7 @@ import random
 # Page setup
 st.set_page_config(page_title="Stock Signal Simulator", layout="wide")
 st.title("📈 Simulated Weekly Stock Recommendations")
-st.markdown("This app simulates 1-week price change using random variation from current price for selected stocks.")
+st.markdown("This app simulates 1-week price change using random variation from current price for selected NSE stocks.")
 
 # Adjust for weekends
 today = datetime.date.today()
@@ -17,9 +17,18 @@ if today.weekday() >= 5:
 
 st.markdown(f"📅 Today (adjusted): **{today}**")
 
+# Expanded NSE tickers list (Top ~50)
 symbols = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
-    "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS"
+    "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
+    "KOTAKBANK.NS", "ASIANPAINT.NS", "SUNPHARMA.NS", "WIPRO.NS", "NESTLEIND.NS",
+    "TITAN.NS", "TECHM.NS", "MARUTI.NS", "POWERGRID.NS", "NTPC.NS",
+    "ULTRACEMCO.NS", "HCLTECH.NS", "BHARTIARTL.NS", "ADANIENT.NS", "COALINDIA.NS",
+    "JSWSTEEL.NS", "HINDUNILVR.NS", "CIPLA.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS",
+    "HDFCLIFE.NS", "TATACONSUM.NS", "BPCL.NS", "DIVISLAB.NS", "DRREDDY.NS",
+    "EICHERMOT.NS", "GRASIM.NS", "HEROMOTOCO.NS", "M&M.NS", "SHREECEM.NS",
+    "ONGC.NS", "BRITANNIA.NS", "SBILIFE.NS", "UPL.NS", "ICICIPRULI.NS",
+    "HINDALCO.NS", "TATASTEEL.NS", "APOLLOHOSP.NS", "DMART.NS", "PIDILITIND.NS"
 ]
 
 buy_list = []
