@@ -154,6 +154,48 @@ st.title("📈 Explore Stock Trends by Period")
 #     "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS"
 # ]
 
+# --- Weekly Recommendation Logic ---
+st.subheader("💡 Weekly Buy/Sell Recommendation")
+
+recommendations = []
+
+for symbol in selected_symbols:
+    try:
+        symbol_df = df[symbol] if len(selected_symbols) > 1 else df
+
+        close_series = symbol_df["Close"].dropna()
+        if len(close_series) < 8:
+            continue  # Skip if not enough data
+
+        current_week_close = close_series.iloc[-1]
+        prev_week_close = close_series.iloc[-6]  # approx. 5 trading days ago
+
+        percent_change = ((current_week_close - prev_week_close) / prev_week_close) * 100
+        recommendation = "BUY" if percent_change <= -5 else "SELL"
+
+        recommendations.append({
+            "Symbol": symbol,
+            "Previous Week Close": round(prev_week_close, 2),
+            "Current Close": round(current_week_close, 2),
+            "% Change": round(percent_change, 2),
+            "Recommendation": recommendation
+        })
+
+    except Exception as e:
+        st.warning(f"Could not process {symbol}: {e}")
+
+# Display DataFrame
+if recommendations:
+    rec_df = pd.DataFrame(recommendations)
+    st.dataframe(rec_df, use_container_width=True)
+
+    # Download buttons
+    st.download_button("⬇️ Download as CSV", data=rec_df.to_csv(index=False), file_name="stock_recommendations.csv", mime="text/csv")
+    st.download_button("⬇️ Download as JSON", data=rec_df.to_json(orient="records", indent=2), file_name="stock_recommendations.json", mime="application/json")
+else:
+    st.info("Not enough data to generate recommendations.")
+
+
 # Multi-select dropdown for stocks
 selected_symbols = st.multiselect("🔍 Select one or more stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
 selected_range = st.selectbox("📆 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"])
