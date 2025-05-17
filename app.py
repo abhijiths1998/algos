@@ -157,6 +157,8 @@ st.title("📈 Explore Stock Trends by Period")
 # --- Weekly Recommendation Logic ---
 st.subheader("💡 Weekly Buy/Sell Recommendation")
 
+selected_symbols = st.multiselect("Select stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
+
 recommendations = []
 
 for symbol in selected_symbols:
