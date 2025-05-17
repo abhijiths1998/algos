@@ -158,7 +158,7 @@ st.title("📈 Explore Stock Trends by Period")
 st.subheader("💡 Weekly Buy/Sell Recommendation")
 
 selected_symbols = st.multiselect("Select stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
-
+df_stocks = yf.download(symbols, period="3mo", group_by="ticker", progress=False)
 recommendations = []
 
 for symbol in selected_symbols:
