@@ -29,7 +29,7 @@ count = st.number_input("🔢 Enter how many top NSE stocks to scan (up to 50)",
 # Input symbol for search
 search_symbol = st.text_input("🔍 Enter NSE symbol to get detailed info (e.g. RELIANCE.NS)")
 
-# Top NSE 50 stocks (static but can later be fetched dynamically)
+# Top NSE 50 stocks
 symbols_all = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
     "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
@@ -108,8 +108,9 @@ if search_symbol:
             info = ticker.info
             st.markdown("### Company Overview")
             st.write(info.get("longBusinessSummary", "No summary available."))
+
             st.markdown("### Key Metrics")
-            st.write({
+            key_metrics = {
                 "Market Cap": info.get("marketCap"),
                 "Sector": info.get("sector"),
                 "Industry": info.get("industry"),
@@ -117,7 +118,8 @@ if search_symbol:
                 "EPS (TTM)": info.get("trailingEps"),
                 "52-Week High": info.get("fiftyTwoWeekHigh"),
                 "52-Week Low": info.get("fiftyTwoWeekLow")
-            })
+            }
+            st.dataframe(pd.DataFrame(key_metrics.items(), columns=["Metric", "Value"]))
         else:
             st.warning("Not enough data found for that symbol.")
     except Exception as e:
