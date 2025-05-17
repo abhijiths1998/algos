@@ -24,36 +24,75 @@ Welcome to the NSE Dashboard! Interact with the filters and visualizations to ex
 ---
 """)
 
-# Symbol list
+# Top 500 NSE symbols (sample subset for demo; replace with full list)
+nse_500_symbols = [
+    "360ONE", "3MINDIA", "ABB", "ACC", "AIAENG", "APLAPOLLO", "AUBANK", "AARTIIND", "AAVAS", "ABBOTINDIA",
+    "ACE", "ADANIENSOL", "ADANIENT", "ADANIGREEN", "ADANIPORTS", "ADANIPOWER", "ATGL", "AWL", "ABCAPITAL",
+    "ABFRL", "ABSLAMC", "ACCELYA", "ACE", "ADFFOODS", "ADL", "ADANITRANS", "AEGISCHEM", "AFFLE", "AGARIND",
+    "AGRITECH", "AGROPHOS", "AGROTECH", "AHIMSA", "AHLADA", "AHLUCONT", "AIAENG", "AIRAN", "AIROLAM",
+    "AJANTPHARM", "AJMERA", "AJOONI", "AKASH", "AKG", "AKSHOPTFBR", "AKSHARCHEM", "AKZOINDIA", "ALANKIT",
+    "ALBERTDAVD", "ALCHEM", "ALEMBICLTD", "ALEMBICPH", "ALICON", "ALKALI", "ALKEM", "ALKYLAMINE", "ALLCARGO",
+    "ALLIEDDIGI", "ALLSEC", "ALMONDZ", "ALOKINDS", "ALPA", "ALPHAGEO", "ALPSINDUS", "AMARAJABAT", "AMBANIORG",
+    "AMBER", "AMBIKCO", "AMBUJACEM", "AMDIND", "AMITSPG", "AMJLAND", "AMRUTANJAN", "ANANTRAJ", "ANDHRACEMT",
+    "ANDHRAPAP", "ANGELBRKG", "ANI", "ANIKINDS", "ANJANI", "ANKITMETAL", "ANSALHSG", "ANSALAPI", "APARINDS",
+    "APCOTEXIND", "APEX", "APLAPOLLO", "APOLLOHOSP", "APOLLO", "APOLLOPIPE", "APOLSINHOT", "APOLLOTYRE",
+    "APTECHT", "ARCHIDPLY", "ARCHIES", "ARCOTECH", "ARIES", "ARIHANT", "ARIHANTSUP", "ARMANFIN", "AROGRANITE",
+    "ARROWGREEN", "ARSHIYA", "ARSSINFRA", "ARTNIRMAN", "ARTEDZ", "ARTEMIS", "ARVEE", "ARVIND", "ARVSMART",
+    "ASAHIINDIA", "ASAHSNG", "ASCOM", "ASHAPURMIN", "ASHIANA", "ASHIM", "ASHOKLEY", "ASHOKA", "ASIANTILES",
+    "ASIANHOTNR", "ASIANHOT", "ASIANPAINT", "ASLIND", "ASPINWALL", "ASSOALC", "ASTEC", "ASTERDM", "ASTRAMICRO",
+    "ASTRAL", "ASTRAZEN", "ASTRON", "ATLANTA", "ATLAS", "ATNINTER", "ATULAUTO", "ATUL", "AUBANK", "AURDIS",
+    "AURIONPRO", "AUROPHARMA", "AUSOMENT", "AUTOLINE", "AUTOLITIND", "AUTOAXLES", "AUTOSTAMP", "AVADHSUGAR",
+    "AVANTIFEED", "AVENTUS", "AVENUES", "AVGLOG", "AVROIND", "AVSL", "AVTNPL", "AXISBANK", "AXISCADES",
+    "AYMSYNTEX", "BAJAJ-AUTO", "BAJFINANCE", "BAJAJFINSV", "BAJAJHLDNG", "BAJAJCON", "BAJAJELEC", "BAJAJHIND",
+    "BAJAJSTL", "BALAJITELE", "BALAMINES", "BALMLAWRIE", "BALPHARMA", "BALRAMCHIN", "BANARISUG", "BANCOINDIA",
+    "BANDHANBNK", "BANKBARODA", "BANKINDIA", "BANSWRAS", "BARTRONICS", "BASF", "BATAINDIA", "BAYERCROP",
+    "BBTC", "BCLIND", "BEML", "BEPL", "BERGEPAINT", "BFINVEST", "BFUTILITIE", "BGRENERGY", "BHAGCHEM",
+    "BHAGERIA", "BHAGYANGR", "BHANDARI", "BHARATFORG", "BHARATGEAR", "BHARATRAS", "BHARATWIRE", "BHARTIARTL",
+    "BHEL", "BHUSANSTL", "BIBCL", "BIGBLOC", "BIL", "BILENERGY", "BINDALAGRO", "BIOCON", "BIRLACABLE",
+    "BIRLACORPN", "BIRLAMONEY", "BIRLATYRE", "BKMINDST", "BLBLIMITED", "BLISSGVS", "BLKASHYAP", "BLS",
+    "BLUEDART", "BLUESTARCO", "BODALCHEM", "BOMDYEING", "BORORENEW", "BOSCHLTD", "BPCL", "BRFL", "BRIGADE",
+    "BRITANNIA", "BROADCAST", "BSE", "BSHSL", "BSL", "BSOFT", "BUTTERFLY", "BYKE", "CADILAHC", "CALSOFT",
+    "CAMLINFINE", "CANBK", "CANFINHOME", "CAPACITE", "CAPLIPOINT", "CAPTRUST", "CARBORUNIV", "CAREERP",
+    "CARERATING", "CASTROLIND", "CCHHL", "CCL", "CEATLTD", "CELEBRITY", "CELLO", "CENTENKA", "CENTEXT",
+    "CENTRALBK", "CENTRUM", "CENTUM", "CENTURYPLY", "CENTURYTEX", "CERA", "CESC", "CGCL", "CGPOWER",
+    "CHALET", "CHAMBLFERT", "CHEMPLASTS", "CHENNPETRO", "CHOLAFIN", "CHOLAHLDNG", "CIGNITITEC", "CIMMCO",
+    "CINELINE", "CINEVISTA", "CIPLA", "CITYUNIONBK", "CKFSL", "CLNINDIA", "CLSEL", "CMICABLES", "COALINDIA",
+    "COCHINSHIP", "COFORGE", "COLPAL", "COMPINFO", "COMPUSOFT", "CONCOR", "CONFIPET", "CONSOFINVT", "CONTROLPR",
+    "CORALFINAC", "COROMANDEL", "COSMOFILMS", "COUNCODOS", "CREDITACC", "CREST", "CRISIL", "CROMPTON",
+    "CSBBANK", "CTE", "CUB", "CUMMINSIND", "CUPID", "CYBERMEDIA", "CYBERTECH", "CYIENT", "DAAWAT", "DABUR",
+    "DALBHARAT", "DALMIASUG", "DAMODARIND", "DANGEE", "DATAMATICS", "DBCORP", "DBL", "DBREALTY", "DBSTOCKBRO",
+    "DCAL", "DCBBANK", "DCM", "DCMFINSERV", "DCMNVL", "DCMSHRIRAM", "DCW", "DECCANCE", "DEEPAKFERT",
+    "DEEPAKNTR", "DEEPINDS", "DELTACORP", "DELTAMAGNT", "DEN", "DENORA", "DENTALKART", "DHAMPURSUG", "DHANBANK",
+    "DHANUKA", "DHARMAJ", "DHFL", "DHRUV", "DHUNINV", "DIAMONDYD", "DICIND", "DIGISPICE", "DIL", "DISHTV",
+    "DIVISLAB", "DIXON", "DLF", "DLINKINDIA", "DMART", "DNAMEDIA", "DODLA", "DOLAT", "DOLLAR", "DOLPHINOFF",
+    "DONEAR", "DPSCLTD", "DPTL", "DRCSYSTEMS", "DREDGECORP", "DRREDDY", "DSSL", "DTIL", "DUCON", "DVL",
+    "DWARKESH", "DYNAMATECH", "DYNPRO", "EASEMYTRIP", "EASTSILK", "ECLERX", "EDELWEISS", "EDUCOMP", "EICHERMOT",
+    "EIDPARRY", "EIHAHOTELS", "EIHOTEL", "EKC", "ELAND", "ELECON", "ELECTCAST", "ELECTHERM", "ELGIEQUIP",
+    "ELGIRUBCO", "EMAMILTD", "EMAMIREAL", "EMCO", "EMKAY", "EMMBI", "EMUDHRA", "ENDURANCE", "ENERGYDEV",
+    "ENGINERSIN", "ENIL", "EON", "EPL", "EQUITAS", "EQUITASBNK", "ERIS", "ESABINDIA", "ESCORTS", "ESSARSHPNG",
+    "ESSENTIA", "ESTER", "EVEREADY", "EVERESTIND", "EXCEL", "EXCELINDUS", "EXIDEIND", "EXPLEOSOL", "EXXARO",
+    "FACT", "FAIRCHEMOR", "FCL", "FCONSUMER", "FCSSOFT", "FDC", "FEDERALBNK", "FEL", "FELDVR"
+    # Extend this list up to 500 tickers
+]
+
+nse_500_symbols = [symbol + ".NS" for symbol in nse_500_symbols]
+
+# Master filter
 with st.sidebar:
     st.header("\U0001F4CB Filters")
     st.markdown("""Customize your analysis with dynamic filters below:""")
-    display_symbols = st.multiselect("Select Stocks to Analyze", options=[
-        "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
-        "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
-        "KOTAKBANK.NS", "ASIANPAINT.NS", "SUNPHARMA.NS", "WIPRO.NS", "NESTLEIND.NS",
-        "TITAN.NS", "TECHM.NS", "MARUTI.NS", "POWERGRID.NS", "NTPC.NS",
-        "ULTRACEMCO.NS", "HCLTECH.NS", "BHARTIARTL.NS", "ADANIENT.NS", "COALINDIA.NS",
-        "JSWSTEEL.NS", "HINDUNILVR.NS", "CIPLA.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS",
-        "HDFCLIFE.NS", "TATACONSUM.NS", "BPCL.NS", "DIVISLAB.NS", "DRREDDY.NS",
-        "EICHERMOT.NS", "GRASIM.NS", "HEROMOTOCO.NS", "M&M.NS", "SHREECEM.NS",
-        "ONGC.NS", "BRITANNIA.NS", "SBILIFE.NS", "UPL.NS", "ICICIPRULI.NS",
-        "HINDALCO.NS", "TATASTEEL.NS", "APOLLOHOSP.NS", "DMART.NS", "PIDILITIND.NS"
-    ], default=["RELIANCE.NS", "TCS.NS", "INFY.NS"], help="Choose NSE tickers to explore")
-
-    display_period = st.selectbox("Time Period", ["1mo", "3mo", "6mo", "1y", "5y"], index=1)
-    compare_type = st.radio("Compare By", ["Top Gainers", "Top Losers"], horizontal=True)
-
-    show_raw_data = st.checkbox("\U0001F4DD Show Raw Data")
-    show_info = st.checkbox("\U0001F6C8 Show DataFrame Info")
-    show_nulls = st.checkbox("\U0001F573 Show Null Summary")
-
+    master_symbols = st.multiselect("\U0001F50D Select Stocks (Master Filter)", options=nse_500_symbols, default=["RELIANCE.NS", "TCS.NS", "INFY.NS"], key="master_symbols")
+    display_period = st.selectbox("Time Period", ["1mo", "3mo", "6mo", "1y", "5y"], index=1, key="display_period")
+    compare_type = st.radio("Compare By", ["Top Gainers", "Top Losers"], horizontal=True, key="compare_type")
+    show_raw_data = st.checkbox("\U0001F4DD Show Raw Data", key="show_raw_data")
+    show_info = st.checkbox("\U0001F6C8 Show DataFrame Info", key="show_info")
+    show_nulls = st.checkbox("\U0001F573 Show Null Summary", key="show_nulls")
     st.markdown("---")
     st.caption("Developed by ChatGPT · Powered by Streamlit")
 
 # Download data
 st.info("\U0001F4E5 Downloading stock data...")
-all_data = yf.download(display_symbols, period=display_period, group_by="ticker", progress=False)
+all_data = yf.download(master_symbols, period=display_period, group_by="ticker", progress=False)
 
 if not isinstance(all_data.index, pd.DatetimeIndex):
     st.error("Index is not datetime. Cannot proceed.")
@@ -85,7 +124,7 @@ if show_nulls:
 # Weekly Performance Summary
 st.subheader("\U0001F4C9 Weekly Stock Performance Summary")
 performance = []
-for symbol in display_symbols:
+for symbol in master_symbols:
     try:
         data = df_filtered[symbol]['Close'].dropna()
         if len(data) < 2:
@@ -117,7 +156,7 @@ with col2:
 
 # Charting selected comparison type
 chart_type = "Gainers" if compare_type == "Top Gainers" else "Losers"
-chart_n = st.slider(f"Compare Top {chart_type}", min_value=1, max_value=10, value=3)
+chart_n = st.slider(f"Compare Top {chart_type}", min_value=1, max_value=10, value=3, key="chart_top")
 top_symbols = perf_df.head(chart_n)['Symbol'].tolist() if chart_type == "Losers" else perf_df.tail(chart_n)['Symbol'].tolist()
 
 chart_df = pd.DataFrame()
