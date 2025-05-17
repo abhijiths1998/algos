@@ -144,59 +144,77 @@ if not loser_data.empty:
 else:
     st.info("No valid data for losers.")
 
+st.header("📈 Explore Stock Trends by Period")
 
+selected_symbols = st.multiselect("🔍 Select one or more stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
+selected_range = st.selectbox("📆 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"])
+
+if selected_symbols and selected_range:
+    with st.spinner("📊 Fetching data..."):
+        df = yf.download(selected_symbols, period=selected_range, group_by="ticker", progress=False)
+
+    if df.empty:
+        st.error("❌ No data returned for selected stocks.")
+    else:
+        # --- Charts ---
+        st.subheader("📉 Closing Price Trend")
+        close_df = pd.DataFrame()
+        for symbol in selected_symbols:
+            if symbol in df.columns.get_level_values(0):
+                close_series = df[symbol]["Close"].dropna()
+                close_series.name = symbol
+                close_df = pd.concat([close_df, close_series], axis=1)
+        if not close_df.empty:
+            st.line_chart(close_df)
+
+        st.subheader("🔊 Volume Trend")
+        volume_df = pd.DataFrame()
+        for symbol in selected_symbols:
+            if symbol in df.columns.get_level_values(0):
+                volume_series = df[symbol]["Volume"].dropna()
+                volume_series.name = symbol
+                volume_df = pd.concat([volume_df, volume_series], axis=1)
+        if not volume_df.empty:
+            st.area_chart(volume_df)
+
+        # --- Recommendations ---
+        st.subheader("💡 Weekly Buy/Sell Recommendations")
+
+        recommendations = []
+
+        for symbol in selected_symbols:
+            try:
+                symbol_df = df[symbol]
+                close_series = symbol_df["Close"].dropna()
+                if len(close_series) < 6:
+                    continue
+
+                current = close_series.iloc[-1]
+                prev_week = close_series.iloc[-6]
+
+                change = ((current - prev_week) / prev_week) * 100
+                rec = "BUY" if change <= -5 else "SELL"
+
+                recommendations.append({
+                    "Symbol": symbol,
+                    "Previous Week Close": round(prev_week, 2),
+                    "Current Close": round(current, 2),
+                    "% Change": round(change, 2),
+                    "Recommendation": rec
+                })
+            except Exception as e:
+                st.warning(f"Could not process {symbol}: {e}")
+
+        if recommendations:
+            rec_df = pd.DataFrame(recommendations)
+            st.dataframe(rec_df, use_container_width=True)
+
+            st.download_button("⬇️ Download as CSV", rec_df.to_csv(index=False), "recommendations.csv", "text/csv")
+            st.download_button("⬇️ Download as JSON", rec_df.to_json(orient="records", indent=2), "recommendations.json", "application/json")
+        else:
+            st.info("No recommendations available yet.")
 st.header(body="📈 Stock Trend Visualizer", divider="grey")
 st.title("📈 Explore Stock Trends by Period")
-
-# Define NSE stock symbols
-# symbols = [
-#     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
-#     "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS"
-# ]
-
-# --- Weekly Recommendation Logic ---
-st.subheader("💡 Weekly Buy/Sell Recommendation")
-
-selected_symbols = st.multiselect("Select stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
-df_stocks = yf.download(symbols, period="3mo", group_by="ticker", progress=False)
-recommendations = []
-
-for symbol in selected_symbols:
-    try:
-        symbol_df = df[symbol] if len(selected_symbols) > 1 else df
-
-        close_series = symbol_df["Close"].dropna()
-        if len(close_series) < 8:
-            continue  # Skip if not enough data
-
-        current_week_close = close_series.iloc[-1]
-        prev_week_close = close_series.iloc[-6]  # approx. 5 trading days ago
-
-        percent_change = ((current_week_close - prev_week_close) / prev_week_close) * 100
-        recommendation = "BUY" if percent_change <= -5 else "SELL"
-
-        recommendations.append({
-            "Symbol": symbol,
-            "Previous Week Close": round(prev_week_close, 2),
-            "Current Close": round(current_week_close, 2),
-            "% Change": round(percent_change, 2),
-            "Recommendation": recommendation
-        })
-
-    except Exception as e:
-        st.warning(f"Could not process {symbol}: {e}")
-
-# Display DataFrame
-if recommendations:
-    rec_df = pd.DataFrame(recommendations)
-    st.dataframe(rec_df, use_container_width=True)
-
-    # Download buttons
-    st.download_button("⬇️ Download as CSV", data=rec_df.to_csv(index=False), file_name="stock_recommendations.csv", mime="text/csv")
-    st.download_button("⬇️ Download as JSON", data=rec_df.to_json(orient="records", indent=2), file_name="stock_recommendations.json", mime="application/json")
-else:
-    st.info("Not enough data to generate recommendations.")
-
 
 # Multi-select dropdown for stocks
 selected_symbols = st.multiselect("🔍 Select one or more stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
