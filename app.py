@@ -146,7 +146,7 @@ else:
 
 st.header("📈 Explore Stock Trends by Period")
 
-selected_symbols = st.multiselect("🔍 Select one or more stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"])
+selected_symbols = st.multiselect("🔍 Select one or more stocks", options=symbols, default=["RELIANCE.NS", "TCS.NS"], key="stock_period")
 selected_range = st.selectbox("📆 Select time range", options=["1mo", "6mo", "1y", "5y", "ytd"])
 
 if selected_symbols and selected_range:
@@ -213,6 +213,7 @@ if selected_symbols and selected_range:
             st.download_button("⬇️ Download as JSON", rec_df.to_json(orient="records", indent=2), "recommendations.json", "application/json")
         else:
             st.info("No recommendations available yet.")
+            
 st.header(body="📈 Stock Trend Visualizer", divider="grey")
 st.title("📈 Explore Stock Trends by Period")
 
