@@ -3,66 +3,80 @@ import yfinance as yf
 import pandas as pd
 import datetime
 import time
+import random
 
-# Streamlit page config
-st.set_page_config(page_title="NSE Top 50 Weekly Analyzer", layout="wide")
-st.title("📈 NSE Top 50 - Weekly Price Change Tracker")
-st.markdown("Shows weekly % change using real daily data from the past month via Yahoo Finance.")
+# Page setup
+st.set_page_config(page_title="Stock Signal Simulator", layout="wide")
+st.title("📈 Simulated Weekly Stock Recommendations")
+st.markdown("This app simulates 1-week price change using random variation from current price for selected stocks.")
 
-# Date logic: get most recent weekday if weekend
+# Adjust for weekends
 today = datetime.date.today()
 if today.weekday() >= 5:
     today -= datetime.timedelta(days=today.weekday() - 4)
 
-start_date = today - datetime.timedelta(weeks=4)
-st.markdown(f"📅 Analyzing data from **{start_date}** to **{today}**")
+st.markdown(f"📅 Today (adjusted): **{today}**")
 
-# NSE Top 50 tickers
 symbols = [
     "RELIANCE.NS", "TCS.NS", "INFY.NS", "ICICIBANK.NS", "HDFCBANK.NS",
-    "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS",
-    "KOTAKBANK.NS", "ASIANPAINT.NS", "SUNPHARMA.NS", "WIPRO.NS", "NESTLEIND.NS",
-    "TITAN.NS", "TECHM.NS", "MARUTI.NS", "POWERGRID.NS", "NTPC.NS",
-    "ULTRACEMCO.NS", "HCLTECH.NS", "BHARTIARTL.NS", "ADANIENT.NS", "COALINDIA.NS",
-    "JSWSTEEL.NS", "HINDUNILVR.NS", "CIPLA.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS",
-    "HDFCLIFE.NS", "TATACONSUM.NS", "BPCL.NS", "DIVISLAB.NS", "DRREDDY.NS",
-    "EICHERMOT.NS", "GRASIM.NS", "HEROMOTOCO.NS", "M&M.NS", "SHREECEM.NS",
-    "ONGC.NS", "BRITANNIA.NS", "SBILIFE.NS", "UPL.NS", "ICICIPRULI.NS",
-    "HINDALCO.NS", "TATASTEEL.NS", "APOLLOHOSP.NS", "DMART.NS", "PIDILITIND.NS"
+    "SBIN.NS", "ITC.NS", "BAJFINANCE.NS", "LT.NS", "AXISBANK.NS"
 ]
 
-results = []
+buy_list = []
+sell_list = []
+skipped = []
 
-with st.spinner("📥 Downloading and analyzing..."):
+with st.spinner("📊 Fetching current prices and simulating weekly change..."):
     for symbol in symbols:
         try:
-            df = yf.download(symbol, start=start_date, end=today, interval="1d", progress=False)
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period="1d")
 
-            if df.empty or df.shape[0] < 10:
+            if data.empty:
+                skipped.append(symbol)
                 continue
 
-            df = df[['Close']].dropna().reset_index()
-            df['Week'] = df['Date'].dt.isocalendar().week
+            current_price = round(data['Close'].iloc[-1], 2)
 
-            weekly = df.groupby('Week', as_index=False)['Close'].agg(first='first', last='last')
-            weekly['% Change'] = ((weekly['last'] - weekly['first']) / weekly['first']) * 100
-            weekly['Symbol'] = symbol
+            # Simulate a 1-week-ago price
+            start_price = round(current_price * random.uniform(0.9, 1.1), 2)
+            change = round(((current_price - start_price) / start_price) * 100, 2)
+            emoji = "📉" if change < 0 else "📈"
 
-            results.append(weekly)
+            result = (symbol, start_price, current_price, f"{emoji} {change}%")
+
+            if change <= -5:
+                buy_list.append(result)
+            elif change > 0:
+                sell_list.append(result)
+
             time.sleep(0.2)
 
         except Exception as e:
-            st.warning(f"{symbol} skipped: {e}")
+            skipped.append(f"{symbol} (error: {e})")
             continue
 
-# Display final combined results
-if results:
-    combined = pd.concat(results)
-    combined = combined[['Symbol', 'Week', 'first', 'last', '% Change']]
-    combined.columns = ['Symbol', 'Week', 'Start Price', 'End Price', '% Change']
-    combined = combined.sort_values(by=['Symbol', 'Week'])
+# Layout
+col1, col2 = st.columns(2)
 
-    st.success("✅ Data processed successfully.")
-    st.dataframe(combined, use_container_width=True)
-else:
-    st.error("⚠️ No data was found for any symbol.")
+with col1:
+    st.subheader("🟢 BUY Recommendations (Dropped > 5%)")
+    if buy_list:
+        buy_df = pd.DataFrame(buy_list, columns=["Symbol", "Start Price", "Current Price", "% Change"])
+        st.dataframe(buy_df.sort_values(by="% Change"), use_container_width=True)
+    else:
+        st.info("No BUY signals.")
+
+with col2:
+    st.subheader("🔴 SELL Recommendations (Price Increased)")
+    if sell_list:
+        sell_df = pd.DataFrame(sell_list, columns=["Symbol", "Start Price", "Current Price", "% Change"])
+        st.dataframe(sell_df.sort_values(by="% Change", ascending=False), use_container_width=True)
+    else:
+        st.info("No SELL signals.")
+
+# Show skipped
+if skipped:
+    with st.expander("⚠️ Skipped Stocks"):
+        for s in skipped:
+            st.text(s)
