@@ -501,8 +501,11 @@ if st.session_state.get("forecast_symbol"):
             st.error(f"Error: 'Close' data not found for {forecast_symbol}.")
         else:
             # Create the forecast DataFrame correctly
-            forecast_df = forecast_data_raw[['Close']].reset_index()
-            forecast_df = forecast_df.rename(columns={'Date': 'ds', 'Close': 'y'})
+            forecast_df = forecast_data_raw[['Close']].copy()
+            forecast_df['ds'] = forecast_data_raw.index
+            forecast_df['y'] = forecast_df['Close']
+            forecast_df = forecast_df[['ds', 'y']]
+
 
             # Train Prophet model
             with st.spinner(f"⚙️ Training Prophet model for {forecast_symbol}..."):
