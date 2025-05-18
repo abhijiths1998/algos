@@ -478,6 +478,9 @@ st.header("🔮 Stock Price Forecasting")
 
 if st.session_state.get("forecast_symbol"):
     forecast_symbol = st.session_state.forecast_symbol
+    start_date_val = st.session_state.get("start_date_forecast")
+    end_date_val = st.session_state.get("end_date_forecast")
+
     with st.spinner(f"📈 Fetching data for {forecast_symbol} for forecasting..."):
         forecast_data_raw = yf.download(
             forecast_symbol,
@@ -489,45 +492,61 @@ if st.session_state.get("forecast_symbol"):
     if forecast_data_raw.empty:
         st.error(f"No data found for {forecast_symbol} in the selected date range for forecasting.")
     else:
-        forecast_df = forecast_data_raw.reset_index()[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
+        # Ensure 'Close' column exists
+        if 'Close' not in forecast_data_raw.columns:
+            st.error(f"Error: 'Close' data not found for {forecast_symbol}.")
+        else:
+            # Create the forecast DataFrame correctly
+            forecast_df = forecast_data_raw[['Close']].reset_index()
+            forecast_df = forecast_df.rename(columns={'Date': 'ds', 'Close': 'y'})
 
-        # Train Prophet model
-        with st.spinner(f"⚙️ Training Prophet model for {forecast_symbol}..."):
-            model = Prophet()
-            model.fit(forecast_df)
+            # Train Prophet model
+            with st.spinner(f"⚙️ Training Prophet model for {forecast_symbol}..."):
+                model = Prophet()
+                model.fit(forecast_df)
 
-        # Make future dataframes for different forecast horizons
-        future_3m = model.make_future_dataframe(periods=90) # approx. 3 months
-        future_6m = model.make_future_dataframe(periods=180) # approx. 6 months
-        future_1y = model.make_future_dataframe(periods=365) # approx. 1 year
-        future_5y = model.make_future_dataframe(periods=365 * 5) # approx. 5 years
+            # Make future dataframes for different forecast horizons
+            future_3m = model.make_future_dataframe(periods=90) # approx. 3 months
+            future_6m = model.make_future_dataframe(periods=180) # approx. 6 months
+            future_1y = model.make_future_dataframe(periods=365) # approx. 1 year
+            future_5y = model.make_future_dataframe(periods=365 * 5) # approx. 5 years
 
-        # Make predictions
-        with st.spinner(f"🔮 Making forecasts for {forecast_symbol}..."):
-            forecast_3m = model.predict(future_3m)
-            forecast_6m = model.predict(future_6m)
-            forecast_1y = model.predict(future_1y)
-            forecast_5y = model.predict(future_5y)
+            # Make predictions
+            with st.spinner(f"🔮 Making forecasts for {forecast_symbol}..."):
+                forecast_3m = model.predict(future_3m)
+                forecast_6m = model.predict(future_6m)
+                forecast_1y = model.predict(future_1y)
+                forecast_5y = model.predict(future_5y)
 
-        st.subheader(f"📈 Price Forecast for {forecast_symbol}")
+            st.subheader(f"📈 Price Forecast for {forecast_symbol}")
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=forecast_df['ds'], y=forecast_df['y'], mode='lines', name='Historical Close Price'))
-        fig.add_trace(go.Scatter(x=forecast_3m['ds'], y=forecast_3m['yhat'], mode='lines', name='Forecast (3 Months)'))
-        fig.add_trace(go.Scatter(x=forecast_6m['ds'], y=forecast_6m['yhat'], mode='lines', name='Forecast (6 Months)'))
-        fig.add_trace(go.Scatter(x=forecast_1y['ds'], y=forecast_1y['yhat'], mode='lines', name='Forecast (1 Year)'))
-        fig.add_trace(go.Scatter(x=forecast_5y['ds'], y=forecast_5y['yhat'], mode='lines', name='Forecast (5 Years)'))
+            forecast_months = st.slider("Show Last N Months of Forecast", min_value=1, max_value=60, value=24) # Up to 5 years
 
-        fig.update_layout(title='Historical Price vs. Forecasted Price',
-                          xaxis_title='Date',
-                          yaxis_title='Price',
-                          legend_title='Forecast Horizon')
-        st.plotly_chart(fig, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=forecast_df['ds'], y=forecast_df['y'], mode='lines', name='Historical Close Price'))
 
-        st.info("Note: These forecasts are based on historical data and the Prophet model. They are not financial advice and should be interpreted with caution.")
+            # Filter and add forecast traces
+            forecast_3m_filtered = forecast_3m.tail(forecast_months)
+            fig.add_trace(go.Scatter(x=forecast_3m_filtered['ds'], y=forecast_3m_filtered['yhat'], mode='lines', name='Forecast (3 Months)'))
+
+            forecast_6m_filtered = forecast_6m.tail(forecast_months)
+            fig.add_trace(go.Scatter(x=forecast_6m_filtered['ds'], y=forecast_6m_filtered['yhat'], mode='lines', name='Forecast (6 Months)'))
+
+            forecast_1y_filtered = forecast_1y.tail(forecast_months)
+            fig.add_trace(go.Scatter(x=forecast_1y_filtered['ds'], y=forecast_1y_filtered['yhat'], mode='lines', name='Forecast (1 Year)'))
+
+            forecast_5y_filtered = forecast_5y.tail(forecast_months)
+            fig.add_trace(go.Scatter(x=forecast_5y_filtered['ds'], y=forecast_5y_filtered['yhat'], mode='lines', name='Forecast (5 Years)'))
+
+            fig.update_layout(title='Historical Price vs. Forecasted Price',
+                              xaxis_title='Date',
+                              yaxis_title='Price',
+                              legend_title='Forecast Horizon')
+            st.plotly_chart(fig, use_container_width=True)
+
+            st.info("Note: These forecasts are based on historical data and the Prophet model. They are not financial advice and should be interpreted with caution.")
 else:
-    st.info("No filters given")
-
+    st.warning("No filters given!!")
 
 # --- EDA and Recommendation Summary ---
 st.markdown("---")
