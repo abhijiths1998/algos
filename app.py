@@ -3,6 +3,7 @@ import yfinance as yf
 import pandas as pd
 import datetime
 import io
+from prophet import Prophet
 # import smtplib # Not used in the current version, can be re-integrated for alerts
 # from email.message import EmailMessage # Not used
 import plotly.graph_objects as go
@@ -112,6 +113,18 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption("Enhanced NSE Dashboard")
+
+    st.header("🛠️ Controls & Filters")
+    st.markdown("Customize your analysis:")
+
+    selected_symbol_forecast = st.selectbox(
+        "🔍 Select Stock for Forecast",
+        options=nse_500_symbols,
+        index=nse_500_symbols.index("RELIANCE.NS") if "RELIANCE.NS" in nse_500_symbols else 0,
+        key="forecast_symbol"
+    )
+
+    st.markdown("---")
 
 # Helper function to download DataFrame as CSV
 def download_df_as_csv(df, filename="data.csv", label_prefix="📥 Download"):
@@ -460,6 +473,60 @@ if show_nifty_comparison and "^NSEI" in df_filtered.columns.get_level_values(0):
             st.info("Not enough stock data (or only NIFTY 50) to compare.")
     else:
         st.warning("NIFTY 50 data could not be loaded or is empty for the selected period.")
+st.markdown("---")
+st.header("🔮 Stock Price Forecasting")
+
+if st.session_state.get("forecast_symbol"):
+    forecast_symbol = st.session_state.forecast_symbol
+    with st.spinner(f"📈 Fetching data for {forecast_symbol} for forecasting..."):
+        forecast_data_raw = yf.download(
+            forecast_symbol,
+            start=start_date_val,
+            end=end_date_val + datetime.timedelta(days=1),
+            progress=False
+        )
+
+    if forecast_data_raw.empty:
+        st.error(f"No data found for {forecast_symbol} in the selected date range for forecasting.")
+    else:
+        forecast_df = forecast_data_raw.reset_index()[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
+
+        # Train Prophet model
+        with st.spinner(f"⚙️ Training Prophet model for {forecast_symbol}..."):
+            model = Prophet()
+            model.fit(forecast_df)
+
+        # Make future dataframes for different forecast horizons
+        future_3m = model.make_future_dataframe(periods=90) # approx. 3 months
+        future_6m = model.make_future_dataframe(periods=180) # approx. 6 months
+        future_1y = model.make_future_dataframe(periods=365) # approx. 1 year
+        future_5y = model.make_future_dataframe(periods=365 * 5) # approx. 5 years
+
+        # Make predictions
+        with st.spinner(f"🔮 Making forecasts for {forecast_symbol}..."):
+            forecast_3m = model.predict(future_3m)
+            forecast_6m = model.predict(future_6m)
+            forecast_1y = model.predict(future_1y)
+            forecast_5y = model.predict(future_5y)
+
+        st.subheader(f"📈 Price Forecast for {forecast_symbol}")
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=forecast_df['ds'], y=forecast_df['y'], mode='lines', name='Historical Close Price'))
+        fig.add_trace(go.Scatter(x=forecast_3m['ds'], y=forecast_3m['yhat'], mode='lines', name='Forecast (3 Months)'))
+        fig.add_trace(go.Scatter(x=forecast_6m['ds'], y=forecast_6m['yhat'], mode='lines', name='Forecast (6 Months)'))
+        fig.add_trace(go.Scatter(x=forecast_1y['ds'], y=forecast_1y['yhat'], mode='lines', name='Forecast (1 Year)'))
+        fig.add_trace(go.Scatter(x=forecast_5y['ds'], y=forecast_5y['yhat'], mode='lines', name='Forecast (5 Years)'))
+
+        fig.update_layout(title='Historical Price vs. Forecasted Price',
+                          xaxis_title='Date',
+                          yaxis_title='Price',
+                          legend_title='Forecast Horizon')
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.info("Note: These forecasts are based on historical data and the Prophet model. They are not financial advice and should be interpreted with caution.")
+else:
+    st.info("No filters given")
 
 
 # --- EDA and Recommendation Summary ---
