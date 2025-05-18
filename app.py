@@ -475,11 +475,15 @@ if show_nifty_comparison and "^NSEI" in df_filtered.columns.get_level_values(0):
         st.warning("NIFTY 50 data could not be loaded or is empty for the selected period.")
 st.markdown("---")
 st.header("🔮 Stock Price Forecasting")
+st.subheader("📆 Forecasting Date Range")
+forecast_start = st.date_input("Start Date for Forecast", default_start_date, key="start_date_forecast")
+forecast_end = st.date_input("End Date for Forecast", default_end_date, key="end_date_forecast")
 
 if st.session_state.get("forecast_symbol"):
     forecast_symbol = st.session_state.forecast_symbol
-    start_date_val = st.session_state.get("start_date_forecast")
-    end_date_val = st.session_state.get("end_date_forecast")
+    start_date_val = forecast_start
+    end_date_val = forecast_end
+
 
     with st.spinner(f"📈 Fetching data for {forecast_symbol} for forecasting..."):
         forecast_data_raw = yf.download(
