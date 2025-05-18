@@ -9,6 +9,7 @@ from prophet import Prophet
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from urllib.parse import urlparse, parse_qs 
+from kiteconnect import KiteConnect
 
 # Set wide layout with stylish sidebar
 st.set_page_config(page_title="📊 NSE Enhanced Dashboard", layout="wide", initial_sidebar_state="expanded")
