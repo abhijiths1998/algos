@@ -590,3 +590,220 @@ else:
 
 st.markdown("---")
 st.info("Disclaimer: This dashboard is for informational and educational purposes only. Not financial advice.")
+
+# --- Streamlit UI for Input ---
+st.title("Simple Zerodha Trading Bot (Input Credentials)")
+
+st.sidebar.header("API Credentials")
+api_key = st.sidebar.text_input("Enter Zerodha API Key")
+api_secret = st.sidebar.text_input("Enter Zerodha API Secret", type="password") # Use password type for secret
+access_token = st.sidebar.text_input("Enter Zerodha Access Token") # Sensitive!
+
+# --- WARNING ---
+st.warning("SECURITY WARNING: Inputting API Secret and Access Token directly is highly insecure. "
+           "Use this ONLY for local testing. For production, implement Zerodha's OAuth login flow.")
+# --- End WARNING ---
+
+kite = None # Initialize kite as None
+
+# --- Initialize Kite Connect only if credentials are provided ---
+if api_key and api_secret and access_token:
+    try:
+        kite = KiteConnect(api_key=api_key)
+        kite.set_access_token(access_token)
+        st.sidebar.success("Kite Connect initialized.")
+
+        # You might want to fetch user profile here to verify the connection
+        try:
+            user_profile = kite.profile()
+            st.sidebar.write(f"Logged in as: {user_profile['user_name']}")
+        except Exception as e:
+            st.sidebar.error(f"Error verifying connection: {e}. Access Token might be invalid.")
+            kite = None # Invalidate kite if connection fails
+
+    except Exception as e:
+        st.sidebar.error(f"Error initializing Kite Connect: {e}")
+        st.sidebar.info("Ensure your API key, secret, and access token are correct.")
+        kite = None # Invalidate kite on init failure
+else:
+    st.info("Please enter your API credentials in the sidebar to proceed.")
+
+
+# --- Rest of the App (only runs if kite is initialized) ---
+if kite:
+    # --- Helper Function to get Instrument Token ---
+    @st.cache_data # Cache the instrument data to avoid refetching on every interaction
+    def get_instruments(exchange="NSE"):
+        try:
+            instruments = kite.instruments([exchange])
+            # Convert to DataFrame for easier searching
+            df = pd.DataFrame(instruments)
+            return df
+        except Exception as e:
+            st.error(f"Error fetching instruments for {exchange}: {e}")
+            return pd.DataFrame()
+
+    st.header("Account Information")
+
+    # 3. Show the balance
+    if st.button("Show Balance"):
+        try:
+            margins = kite.margins()
+            equity_margin = margins.get('equity', {})
+            available_cash = equity_margin.get('available', {}).get('live_margin', 'N/A')
+            st.write(f"**Available Equity Margin:** ₹{available_cash}")
+        except Exception as e:
+            st.error(f"Error fetching balance: {e}")
+
+    st.header("Trade Execution")
+
+    st.sidebar.header("Trade Settings")
+    exchange = st.sidebar.selectbox("Select Exchange", ["NSE", "BSE", "NFO", "MCX"], index=0)
+    instrument_df = get_instruments(exchange)
+
+    # 2. Get the stock symbol as input
+    tradingsymbol = st.text_input("Enter Stock Symbol (e.g., RELIANCE, TCS)").upper()
+
+    # Find instrument token for the given symbol and exchange
+    instrument_token = None
+    if tradingsymbol and not instrument_df.empty:
+        instrument_row = instrument_df[(instrument_df['tradingsymbol'] == tradingsymbol) & (instrument_df['exchange'] == exchange)]
+        if not instrument_row.empty:
+            instrument_token = instrument_row.iloc[0]['instrument_token']
+            # st.write(f"Found Instrument Token for {tradingsymbol} on {exchange}: {instrument_token}") # Can show token if needed
+        else:
+            st.warning(f"Could not find instrument token for {tradingsymbol} on {exchange}. Check the symbol and exchange.")
+
+    # Placeholder for quantity input
+    quantity = st.number_input("Enter Quantity", min_value=1, value=1, step=1)
+
+    # 3. Based on the rule of 5% diff show buy or sell
+    st.header("Trading Suggestion (5% Difference Rule)")
+
+    if tradingsymbol and instrument_token:
+        try:
+            # Get current LTP
+            ltp_data = kite.ltp([f"{exchange}:{tradingsymbol}"])
+            current_ltp = None
+            if f"{exchange}:{tradingsymbol}" in ltp_data:
+                current_ltp = ltp_data[f"{exchange}:{tradingsymbol}"]['last_price']
+                st.write(f"Current Last Traded Price (LTP) for {tradingsymbol}: ₹{current_ltp}")
+            else:
+                 st.warning(f"Could not fetch LTP for {tradingsymbol} on {exchange}. Cannot apply 5% rule.")
+
+
+            # Fetch holdings to check average price if selling
+            holdings = kite.holdings()
+            stock_holding = next((item for item in holdings if item['tradingsymbol'] == tradingsymbol and item['exchange'] == exchange), None)
+
+            suggestion = "Analyze..."
+            action = None
+            avg_buy_price = None
+            held_quantity = 0
+
+            if stock_holding:
+                avg_buy_price = stock_holding['average_price']
+                held_quantity = stock_holding['quantity']
+                st.write(f"Your Average Buy Price for {tradingsymbol}: ₹{avg_buy_price:.2f}")
+                st.write(f"Quantity Held: {held_quantity}")
+
+                # 5% Sell Rule: If LTP is 5% or more above the average buy price
+                if current_ltp is not None and current_ltp >= avg_buy_price * 1.05:
+                    suggestion = f"**SELL:** LTP (₹{current_ltp}) is >= 5% above Average Buy Price (₹{avg_buy_price * 1.05:.2f})."
+                    action = "SELL"
+                elif current_ltp is not None:
+                    suggestion = f"**HOLD/Analyze:** LTP (₹{current_ltp}) is not 5% or more above Average Buy Price (₹{avg_buy_price:.2f})."
+                else:
+                     suggestion = "Cannot apply 5% sell rule: Could not fetch LTP."
+
+            else:
+                # Simple Placeholder for Buy Logic (Needs a real strategy)
+                suggestion = f"No holdings found for {tradingsymbol}. Consider a BUY based on your strategy."
+                # Decide if we show a buy button based on *some* condition or just allow manual buy via button below
+                # For simplicity, let's just show the buy button regardless if the instrument is found
+
+            st.markdown(suggestion)
+
+            # 4. Using zerodha api buy or sell the stock
+            buy_col, sell_col = st.columns(2)
+
+            with buy_col:
+                 if st.button(f"Execute BUY Order for {tradingsymbol}", disabled=not tradingsymbol or quantity <= 0):
+                     if current_ltp is None:
+                         st.warning("Cannot place BUY order: Could not fetch LTP.")
+                     else:
+                         # Place BUY order (requires proper buy logic in a real bot)
+                         try:
+                             st.info(f"Placing BUY order for {quantity} shares of {tradingsymbol}...")
+                             order_id = kite.place_order(
+                                 tradingsymbol=tradingsymbol,
+                                 exchange=exchange,
+                                 transaction_type=kite.TRANSACTION_TYPE_BUY,
+                                 quantity=quantity,
+                                 variety=kite.VARIETY_REGULAR, # or kite.VARIETY_MIS, etc.
+                                 order_type=kite.ORDER_TYPE_MARKET, # or kite.ORDER_TYPE_LIMIT, etc.
+                                 product=kite.PRODUCT_CNC # or kite.PRODUCT_MIS, etc.
+                             )
+                             st.success(f"BUY order placed successfully! Order ID: {order_id}")
+                             st.info("Check your Zerodha Kite terminal for order status.")
+                         except Exception as e:
+                             st.error(f"Error placing BUY order: {e}")
+
+            with sell_col:
+                 # Only enable sell button if action is SELL and quantity is positive
+                 if st.button(f"Execute SELL Order for {tradingsymbol}", disabled=action != "SELL" or quantity <= 0 or held_quantity <= 0):
+                      if current_ltp is None:
+                          st.warning("Cannot place SELL order: Could not fetch LTP.")
+                      elif quantity > held_quantity:
+                          st.warning(f"Attempting to sell {quantity} but only {held_quantity} held. Adjusting quantity to {held_quantity}.")
+                          sell_quantity = held_quantity
+                      else:
+                          sell_quantity = quantity
+
+                      if sell_quantity > 0:
+                          try:
+                              st.info(f"Placing SELL order for {sell_quantity} shares of {tradingsymbol}...")
+                              # Place SELL order
+                              order_id = kite.place_order(
+                                  tradingsymbol=tradingsymbol,
+                                  exchange=exchange,
+                                  transaction_type=kite.TRANSACTION_TYPE_SELL,
+                                  quantity=sell_quantity,
+                                  variety=kite.VARIETY_REGULAR, # or kite.VARIETY_MIS, etc.
+                                  order_type=kite.ORDER_TYPE_MARKET, # or kite.ORDER_TYPE_LIMIT, etc.
+                                  product=kite.PRODUCT_CNC # or kite.PRODUCT_MIS, etc.
+                              )
+                              st.success(f"SELL order placed successfully! Order ID: {order_id}")
+                              st.info("Check your Zerodha Kite terminal for order status.")
+                          except Exception as e:
+                              st.error(f"Error placing SELL order: {e}")
+                      else:
+                           st.warning("Cannot place SELL order: Quantity to sell is zero.")
+
+
+        except Exception as e:
+            st.error(f"An error occurred during analysis: {e}")
+
+    st.markdown("---")
+    st.info("Disclaimer: This is a simplified example for educational purposes. "
+            "Trading involves risk. Use this code responsibly and at your own risk. "
+            "Implement proper error handling, security measures (especially for credentials), "
+            " and a robust trading strategy for any real trading.")
+
+    # --- Optional: Display Holdings ---
+    st.header("Your Holdings")
+    if st.button("Show Holdings"):
+        try:
+            holdings_data = kite.holdings()
+            if holdings_data:
+                holdings_df = pd.DataFrame(holdings_data)
+                st.dataframe(holdings_df)
+            else:
+                st.info("No holdings found in your portfolio.")
+        except Exception as e:
+            st.error(f"Error fetching holdings: {e}")
+
+else:
+    st.info("Please provide all API credentials in the sidebar to activate the bot.")
+
+
