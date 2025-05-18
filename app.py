@@ -8,6 +8,7 @@ from prophet import Prophet
 # from email.message import EmailMessage # Not used
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+rom urllib.parse import urlparse, parse_qs 
 
 # Set wide layout with stylish sidebar
 st.set_page_config(page_title="📊 NSE Enhanced Dashboard", layout="wide", initial_sidebar_state="expanded")
@@ -591,46 +592,86 @@ else:
 st.markdown("---")
 st.info("Disclaimer: This dashboard is for informational and educational purposes only. Not financial advice.")
 
-# --- Streamlit UI for Input ---
-st.title("Simple Zerodha Trading Bot (Input Credentials)")
+
+# --- Streamlit UI ---
+st.title("Simple Zerodha Trading Bot (Manual Token Generation)")
 
 st.sidebar.header("API Credentials")
 api_key = st.sidebar.text_input("Enter Zerodha API Key")
-api_secret = st.sidebar.text_input("Enter Zerodha API Secret", type="password") # Use password type for secret
-access_token = st.sidebar.text_input("Enter Zerodha Access Token") # Sensitive!
+api_secret = st.sidebar.text_input("Enter Zerodha API Secret", type="password")
 
 # --- WARNING ---
-st.warning("SECURITY WARNING: Inputting API Secret and Access Token directly is highly insecure. "
-           "Use this ONLY for local testing. For production, implement Zerodha's OAuth login flow.")
+st.warning("SECURITY WARNING: Handling API Secret and Access Token directly is highly insecure. "
+           "Use this ONLY for local testing. For production, implement Zerodha's OAuth login flow securely.")
 # --- End WARNING ---
 
 kite = None # Initialize kite as None
+access_token = None # Initialize access_token
 
-# --- Initialize Kite Connect only if credentials are provided ---
-if api_key and api_secret and access_token:
+# --- Manual Token Generation Flow ---
+st.header("Generate Access Token")
+st.info("Follow these steps to generate your Access Token:")
+
+if api_key and api_secret:
     try:
-        kite = KiteConnect(api_key=api_key)
-        kite.set_access_token(access_token)
-        st.sidebar.success("Kite Connect initialized.")
+        # Step 1: Generate Login URL
+        temp_kite = KiteConnect(api_key=api_key)
+        # You need to configure this redirect_uri in your Zerodha Developer Console
+        # For local testing, you can use http://localhost:8501/ (the default Streamlit address)
+        # or a specific path like http://localhost:8501/callback if your web server handles routing.
+        # In a real app, this must be a URL your server handles.
+        redirect_uri = "http://localhost:8501/" # Replace with your configured redirect URI
 
-        # You might want to fetch user profile here to verify the connection
-        try:
-            user_profile = kite.profile()
-            st.sidebar.write(f"Logged in as: {user_profile['user_name']}")
-        except Exception as e:
-            st.sidebar.error(f"Error verifying connection: {e}. Access Token might be invalid.")
-            kite = None # Invalidate kite if connection fails
+        login_url = temp_kite.login_url() # pykiteconnect automatically adds redirect_uri if configured
+        st.write(f"1. Click the link below to log in to Zerodha and authorize your app:")
+        st.markdown(f"**[Login to Zerodha]({login_url})**")
+        st.write(f"   (Your configured redirect URI: `{temp_kite._redirect_url}`)") # Display configured redirect URI
+
+        st.write("2. After logging in, you will be redirected to your redirect URI. The URL in your browser will look like: `YOUR_REDIRECT_URI?request_token=YOUR_REQUEST_TOKEN&status=success`")
+        st.write("3. Copy the value of `request_token` from the redirected URL.")
+
+        request_token = st.text_input("4. Paste the Request Token here:")
+
+        if request_token:
+            if st.button("Generate Access Token from Request Token"):
+                try:
+                    # Step 5 & 6: Exchange request_token for access_token
+                    data = temp_kite.generate_session(request_token, api_secret=api_secret)
+                    access_token = data["access_token"]
+
+                    st.success("Access Token generated successfully!")
+                    st.write(f"Your Access Token (Keep this secure!): `{access_token}`")
+
+                    # Store the access token in session state if you want to persist it across reruns
+                    # st.session_state['access_token'] = access_token
+
+                    # Now you can initialize the main kite object for trading
+                    kite = KiteConnect(api_key=api_key)
+                    kite.set_access_token(access_token)
+                    st.sidebar.success("Kite Connect initialized with new Access Token.")
+
+                    try:
+                        user_profile = kite.profile()
+                        st.sidebar.write(f"Logged in as: {user_profile['user_name']}")
+                    except Exception as e:
+                        st.sidebar.error(f"Error verifying connection with new token: {e}. Access Token might be invalid or expired.")
+                        kite = None # Invalidate kite if connection fails
+
+
+                except Exception as e:
+                    st.error(f"Error generating Access Token: {e}")
+                    st.info("Ensure your API Key, Secret, and Request Token are correct and the token hasn't expired.")
+        else:
+            st.info("Paste the Request Token to generate the Access Token.")
 
     except Exception as e:
-        st.sidebar.error(f"Error initializing Kite Connect: {e}")
-        st.sidebar.info("Ensure your API key, secret, and access token are correct.")
-        kite = None # Invalidate kite on init failure
-else:
-    st.info("Please enter your API credentials in the sidebar to proceed.")
+        st.error(f"Error generating login URL: {e}")
+        st.info("Please check your API Key.")
 
-
-# --- Rest of the App (only runs if kite is initialized) ---
+# --- Check if kite object is initialized for trading sections ---
 if kite:
+    st.header("Trading Functionality")
+
     # --- Helper Function to get Instrument Token ---
     @st.cache_data # Cache the instrument data to avoid refetching on every interaction
     def get_instruments(exchange="NSE"):
@@ -670,7 +711,7 @@ if kite:
         instrument_row = instrument_df[(instrument_df['tradingsymbol'] == tradingsymbol) & (instrument_df['exchange'] == exchange)]
         if not instrument_row.empty:
             instrument_token = instrument_row.iloc[0]['instrument_token']
-            # st.write(f"Found Instrument Token for {tradingsymbol} on {exchange}: {instrument_token}") # Can show token if needed
+            # st.write(f"Found Instrument Token for {tradingsymbol} on {exchange}: {instrument_token}")
         else:
             st.warning(f"Could not find instrument token for {tradingsymbol} on {exchange}. Check the symbol and exchange.")
 
@@ -728,33 +769,28 @@ if kite:
             buy_col, sell_col = st.columns(2)
 
             with buy_col:
-                 if st.button(f"Execute BUY Order for {tradingsymbol}", disabled=not tradingsymbol or quantity <= 0):
-                     if current_ltp is None:
-                         st.warning("Cannot place BUY order: Could not fetch LTP.")
-                     else:
-                         # Place BUY order (requires proper buy logic in a real bot)
-                         try:
-                             st.info(f"Placing BUY order for {quantity} shares of {tradingsymbol}...")
-                             order_id = kite.place_order(
-                                 tradingsymbol=tradingsymbol,
-                                 exchange=exchange,
-                                 transaction_type=kite.TRANSACTION_TYPE_BUY,
-                                 quantity=quantity,
-                                 variety=kite.VARIETY_REGULAR, # or kite.VARIETY_MIS, etc.
-                                 order_type=kite.ORDER_TYPE_MARKET, # or kite.ORDER_TYPE_LIMIT, etc.
-                                 product=kite.PRODUCT_CNC # or kite.PRODUCT_MIS, etc.
-                             )
-                             st.success(f"BUY order placed successfully! Order ID: {order_id}")
-                             st.info("Check your Zerodha Kite terminal for order status.")
-                         except Exception as e:
-                             st.error(f"Error placing BUY order: {e}")
+                 # Disable buy button if no symbol/quantity or LTP not available
+                 if st.button(f"Execute BUY Order for {tradingsymbol}", disabled=not tradingsymbol or quantity <= 0 or current_ltp is None):
+                     try:
+                         st.info(f"Placing BUY order for {quantity} shares of {tradingsymbol}...")
+                         order_id = kite.place_order(
+                             tradingsymbol=tradingsymbol,
+                             exchange=exchange,
+                             transaction_type=kite.TRANSACTION_TYPE_BUY,
+                             quantity=quantity,
+                             variety=kite.VARIETY_REGULAR, # or kite.VARIETY_MIS, etc.
+                             order_type=kite.ORDER_TYPE_MARKET, # or kite.ORDER_TYPE_LIMIT, etc.
+                             product=kite.PRODUCT_CNC # or kite.PRODUCT_MIS, etc.
+                         )
+                         st.success(f"BUY order placed successfully! Order ID: {order_id}")
+                         st.info("Check your Zerodha Kite terminal for order status.")
+                     except Exception as e:
+                         st.error(f"Error placing BUY order: {e}")
 
             with sell_col:
-                 # Only enable sell button if action is SELL and quantity is positive
-                 if st.button(f"Execute SELL Order for {tradingsymbol}", disabled=action != "SELL" or quantity <= 0 or held_quantity <= 0):
-                      if current_ltp is None:
-                          st.warning("Cannot place SELL order: Could not fetch LTP.")
-                      elif quantity > held_quantity:
+                 # Disable sell button if no symbol/quantity, no holdings, LTP not available, or 5% rule not met
+                 if st.button(f"Execute SELL Order for {tradingsymbol}", disabled=action != "SELL" or quantity <= 0 or held_quantity <= 0 or current_ltp is None):
+                      if quantity > held_quantity:
                           st.warning(f"Attempting to sell {quantity} but only {held_quantity} held. Adjusting quantity to {held_quantity}.")
                           sell_quantity = held_quantity
                       else:
@@ -804,6 +840,4 @@ if kite:
             st.error(f"Error fetching holdings: {e}")
 
 else:
-    st.info("Please provide all API credentials in the sidebar to activate the bot.")
-
-
+    st.info("Please provide your API Key and Secret in the sidebar and generate an Access token")
