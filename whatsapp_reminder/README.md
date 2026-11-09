@@ -44,6 +44,24 @@ python bot.py test    # sends one test message to your WhatsApp
 python bot.py run
 ```
 
+### Option A: GitHub Actions (no machine needed)
+
+`.github/workflows/whatsapp-reminders.yml` checks every 5 minutes and sends
+whatever came due. It's free for public repos, but GitHub often starts these
+runs 5–20 minutes late, so reminders can arrive late.
+
+1. In the repo on GitHub, go to **Settings → Secrets and variables → Actions**
+   and add two repository secrets: `CALLMEBOT_PHONE` and `CALLMEBOT_APIKEY`.
+2. The workflow must be on the default branch, because scheduled workflows
+   only run from there.
+3. Go to **Actions → WhatsApp reminders → Run workflow** (mode `test`) to
+   send a test message.
+
+GitHub pauses scheduled workflows in repos with no commits for 60 days. If
+reminders stop, re-enable the workflow on the Actions tab.
+
+### Option B: your own always-on machine
+
 The bot has to keep running to send reminders, so run it on something that's
 always on:
 

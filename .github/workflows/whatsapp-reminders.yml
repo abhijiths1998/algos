@@ -1,0 +1,53 @@
+name: WhatsApp reminders
+
+on:
+  schedule:
+    # Every 5 minutes from 05:30 to 00:25 IST (00:00-18:55 UTC).
+    # GitHub often starts scheduled runs late, so the bot catches up on
+    # anything that came due since its previous run.
+    - cron: "*/5 0-18 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test = send one test message; once = normal reminder check"
+        type: choice
+        options: [test, once]
+        default: test
+
+concurrency:
+  group: whatsapp-reminders
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: whatsapp_reminder
+    env:
+      WHATSAPP_PROVIDER: callmebot
+      CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+      CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      # Remember when the last check happened so nothing is sent twice.
+      - uses: actions/cache/restore@v4
+        with:
+          path: whatsapp_reminder/state.json
+          key: reminder-state-${{ github.run_id }}
+          restore-keys: reminder-state-
+
+      - name: Send reminders
+        run: python bot.py ${{ inputs.mode || 'once' }}
+
+      - uses: actions/cache/save@v4
+        if: always() && hashFiles('whatsapp_reminder/state.json') != ''
+        with:
+          path: whatsapp_reminder/state.json
+          key: reminder-state-${{ github.run_id }}

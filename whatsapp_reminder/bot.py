@@ -7,6 +7,8 @@ Usage:
     python bot.py today      # list today's reminders (sends nothing)
     python bot.py test       # send one test message to check your setup
     python bot.py run        # run forever and send reminders on time
+    python bot.py once       # send what's due since the last run, then exit
+                             # (used by the GitHub Actions workflow)
 
 Configuration comes from environment variables, or from a .env file next
 to this script. See .env.example and README.md.
@@ -37,6 +39,8 @@ DAY_GROUPS = {
 TICK_SECONDS = 20
 # If the machine was asleep, reminders older than this are skipped, not sent late.
 GRACE = timedelta(minutes=10)
+# GitHub Actions schedules often run late, so allow more slack in 'once' mode.
+ONCE_GRACE = timedelta(minutes=45)
 
 
 # ---------------------------------------------------------------- config
@@ -220,13 +224,54 @@ def cmd_run(schedule_path):
         last = now
 
 
+def cmd_once(schedule_path, state_path):
+    """Send whatever came due since the previous run, then exit.
+
+    Meant for schedulers like GitHub Actions that start the bot every few
+    minutes (and often late). The time of the last check is kept in a small
+    state file so nothing is sent twice or missed between runs.
+    """
+    tz, reminders = load_schedule(schedule_path)
+    sender = get_sender()
+    now = datetime.now(tz)
+    state = Path(state_path)
+    try:
+        last = datetime.fromisoformat(json.loads(state.read_text())["last_check"])
+    except (OSError, ValueError, KeyError):
+        last = now - timedelta(minutes=10)  # first run: don't replay the whole day
+        log("no previous state, looking back 10 minutes")
+    days = {last.astimezone(tz).date() + timedelta(days=i)
+            for i in range((now.date() - last.astimezone(tz).date()).days + 1)}
+    due = sorted(
+        (at, msg)
+        for day in days
+        for at, msg in occurrences(reminders, day, tz)
+        if last < at <= now
+    )
+    for at, msg in due:
+        if now - at > ONCE_GRACE:
+            log(f"skipped stale {at:%a %H:%M} reminder")
+        elif send_with_retry(sender, msg):
+            log(f"sent {at:%H:%M} ({(now - at).seconds // 60} min late): {msg}")
+        else:
+            log(f"FAILED {at:%H:%M}: {msg}")
+    if not due:
+        log("nothing due")
+    state.write_text(json.dumps({"last_check": now.isoformat()}))
+
+
 def main():
     load_dotenv(HERE / ".env")
     parser = argparse.ArgumentParser(description="WhatsApp routine reminder bot")
-    parser.add_argument("command", choices=["run", "test", "today"])
+    parser.add_argument("command", choices=["run", "once", "test", "today"])
     parser.add_argument("--schedule", default=str(HERE / "schedule.yaml"))
+    parser.add_argument("--state", default=str(HERE / "state.json"),
+                        help="state file used by the 'once' command")
     args = parser.parse_args()
-    {"run": cmd_run, "test": cmd_test, "today": cmd_today}[args.command](args.schedule)
+    if args.command == "once":
+        cmd_once(args.schedule, args.state)
+    else:
+        {"run": cmd_run, "test": cmd_test, "today": cmd_today}[args.command](args.schedule)
 
 
 if __name__ == "__main__":
