@@ -1,0 +1,93 @@
+# Daily routine reminders, sent to WhatsApp.
+#
+# Each reminder needs:
+#   time: "HH:MM" in 24-hour format, in the timezone below
+#   days: weekdays | weekends | daily | a list like [mon, wed, fri]
+#   message: the text to send
+#
+# Edit times freely. Restart the bot after changing this file.
+
+timezone: Asia/Kolkata
+
+reminders:
+  # ---------- Weekdays (Mon-Fri) ----------
+  - time: "06:30"
+    days: weekdays
+    message: "☀️ Wake up! Drink a glass of water. No phone for 15 minutes."
+  - time: "06:45"
+    days: weekdays
+    message: "🧘 Meditation time: 10-15 minutes."
+  - time: "07:00"
+    days: weekdays
+    message: "🏋️ Gym time. Short on time? 45 min still counts."
+  - time: "08:15"
+    days: weekdays
+    message: "🚿 Gym done. Shower, breakfast, get ready."
+  - time: "13:15"
+    days: weekdays
+    message: "📒 Lunch break: spend 15-20 min going over last night's class notes."
+  - time: "19:30"
+    days: weekdays
+    message: "🍽️ Dinner time."
+  - time: "20:00"
+    days: weekdays
+    message: "🎮 Gaming time: 45 minutes, ends at 8:45."
+  - time: "20:40"
+    days: weekdays
+    message: "⏰ 5 minutes of gaming left. Wrap up the match."
+  - time: "20:45"
+    days: weekdays
+    message: "🗂️ Gaming over. Set up your desk and notes for class."
+  - time: "21:00"
+    days: weekdays
+    message: "💻 FDE class starts now."
+  - time: "23:00"
+    days: weekdays
+    message: "✍️ Class done. Journal for 10 minutes."
+  - time: "23:10"
+    days: weekdays
+    message: "📖 Read a paper book until 11:30. No screens."
+  - time: "23:25"
+    days: weekdays
+    message: "🌙 Lights out in 5 minutes."
+
+  # ---------- Weekends (Sat-Sun) ----------
+  - time: "07:30"
+    days: weekends
+    message: "☀️ Wake up! Sleeping in past this will throw off Monday."
+  - time: "07:45"
+    days: weekends
+    message: "🧘 Meditation time."
+  - time: "08:00"
+    days: [sat]
+    message: "🏋️ Gym time."
+  - time: "08:00"
+    days: [sun]
+    message: "🏋️ Gym time. A lighter recovery session is fine today."
+  - time: "09:15"
+    days: weekends
+    message: "🍳 Breakfast."
+  - time: "10:00"
+    days: weekends
+    message: "📚 FDE deep study until 12:30: assignments, revision, practice."
+  - time: "12:30"
+    days: weekends
+    message: "🎉 Study block done. Lunch and free time."
+  - time: "15:00"
+    days: weekends
+    message: "📖 Reading hour."
+  - time: "16:00"
+    days: weekends
+    message: "🎮 Free time. Gaming, going out, errands."
+  - time: "21:00"
+    days: weekends
+    message: "💻 FDE class, or more study if there's no class tonight."
+  - time: "23:00"
+    days: [sat]
+    message: "✍️ Journal time."
+  - time: "23:00"
+    days: [sun]
+    message: "🗓️ Weekly review: what worked this week, and what slipped?"
+  - time: "23:25"
+    days: weekends
+    message: "🌙 Lights out in 5 minutes."

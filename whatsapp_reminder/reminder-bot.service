@@ -1,0 +1,19 @@
+# systemd unit to keep the bot running on a Linux machine (Raspberry Pi, VPS, ...).
+# Edit User and the two paths, then:
+#   sudo cp reminder-bot.service /etc/systemd/system/
+#   sudo systemctl enable --now reminder-bot
+#   journalctl -u reminder-bot -f      # watch the logs
+[Unit]
+Description=WhatsApp routine reminder bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/algos/whatsapp_reminder
+ExecStart=/usr/bin/python3 /home/pi/algos/whatsapp_reminder/bot.py run
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
