@@ -1,0 +1,66 @@
+name: Routine reminders
+
+on:
+  schedule:
+    # Every 5 minutes from 05:30 to 00:25 IST (00:00-18:55 UTC).
+    # GitHub often starts scheduled runs late, so the bot catches up on
+    # anything that came due since its previous run.
+    - cron: "*/5 0-18 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "test = send a test message; chatid = show your Telegram chat ID; once = normal reminder check"
+        type: choice
+        options: [test, chatid, once]
+        default: test
+
+concurrency:
+  group: routine-reminders
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: reminder_bot
+    env:
+      REMINDER_PROVIDER: telegram
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      # Scheduled runs skip quietly until both secrets are set, instead of
+      # failing (and emailing you) every 5 minutes. Manual runs always go ahead.
+      ENABLED: ${{ (secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '') || github.event_name != 'schedule' }}
+    steps:
+      - name: Secrets not set yet
+        if: env.ENABLED != 'true'
+        working-directory: .
+        run: echo "::notice::Add the TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID secrets to start reminders."
+
+      - uses: actions/checkout@v4
+        if: env.ENABLED == 'true'
+      - uses: actions/setup-python@v5
+        if: env.ENABLED == 'true'
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+        if: env.ENABLED == 'true'
+
+      # Remember when the last check happened so nothing is sent twice.
+      - uses: actions/cache/restore@v4
+        if: env.ENABLED == 'true'
+        with:
+          path: reminder_bot/state.json
+          key: reminder-state-${{ github.run_id }}
+          restore-keys: reminder-state-
+
+      - name: Run bot
+        if: env.ENABLED == 'true'
+        run: python bot.py ${{ inputs.mode || 'once' }}
+
+      - uses: actions/cache/save@v4
+        if: always() && env.ENABLED == 'true' && hashFiles('reminder_bot/state.json') != ''
+        with:
+          path: reminder_bot/state.json
+          key: reminder-state-${{ github.run_id }}

@@ -1,9 +1,10 @@
-"""WhatsApp reminder bot for a daily routine.
+"""Reminder bot for a daily routine.
 
-Reads reminders from schedule.yaml and sends each one to your WhatsApp
-at its scheduled time.
+Reads reminders from schedule.yaml and sends each one to you on Telegram
+(or WhatsApp) at its scheduled time.
 
 Usage:
+    python bot.py chatid     # Telegram: show your chat ID after you message the bot
     python bot.py today      # list today's reminders (sends nothing)
     python bot.py test       # send one test message to check your setup
     python bot.py run        # run forever and send reminders on time
@@ -154,13 +155,26 @@ def send_meta(text):
           "Content-Type": "application/json"})
 
 
-SENDERS = {"callmebot": send_callmebot, "twilio": send_twilio, "meta": send_meta}
+def send_telegram(text):
+    url = f"https://api.telegram.org/bot{env('TELEGRAM_BOT_TOKEN')}/sendMessage"
+    data = urllib.parse.urlencode({"chat_id": env("TELEGRAM_CHAT_ID"), "text": text}).encode()
+    status, body = http("POST", url, data, {"Content-Type": "application/x-www-form-urlencoded"})
+    if not json.loads(body).get("ok"):
+        raise RuntimeError(f"Telegram: {body[:200]}")
+
+
+SENDERS = {
+    "telegram": send_telegram,
+    "callmebot": send_callmebot,
+    "twilio": send_twilio,
+    "meta": send_meta,
+}
 
 
 def get_sender():
-    name = os.environ.get("WHATSAPP_PROVIDER", "callmebot").strip().lower()
+    name = os.environ.get("REMINDER_PROVIDER", "telegram").strip().lower()
     if name not in SENDERS:
-        sys.exit(f"WHATSAPP_PROVIDER must be one of {', '.join(SENDERS)}, not {name!r}")
+        sys.exit(f"REMINDER_PROVIDER must be one of {', '.join(SENDERS)}, not {name!r}")
     return SENDERS[name]
 
 
@@ -169,7 +183,7 @@ def send_with_retry(sender, text, attempts=3):
         try:
             sender(text)
             return True
-        except (urllib.error.URLError, RuntimeError, OSError) as e:
+        except (urllib.error.URLError, RuntimeError, OSError, ValueError) as e:
             detail = e.read().decode("utf-8", "replace")[:200] if isinstance(e, urllib.error.HTTPError) else ""
             log(f"send failed (attempt {n}/{attempts}): {e} {detail}")
             if n < attempts:
@@ -189,6 +203,21 @@ def cmd_today(schedule_path):
     print(f"Reminders for {today:%A %d %b} ({tz.key}):")
     for at, msg in occurrences(reminders, today, tz):
         print(f"  {at:%H:%M}  {msg}")
+
+
+def cmd_chatid(_schedule_path):
+    """List chats that recently messaged the bot, to find TELEGRAM_CHAT_ID."""
+    url = f"https://api.telegram.org/bot{env('TELEGRAM_BOT_TOKEN')}/getUpdates"
+    _, body = http("GET", url)
+    chats = {}
+    for update in json.loads(body).get("result", []):
+        chat = (update.get("message") or {}).get("chat")
+        if chat:
+            chats[chat["id"]] = chat.get("type", "")
+    if not chats:
+        sys.exit("No messages found. Open your bot in Telegram, send it /start, then try again.")
+    for chat_id, kind in chats.items():
+        print(f"TELEGRAM_CHAT_ID={chat_id}   ({kind} chat)")
 
 
 def cmd_test(schedule_path):
@@ -262,8 +291,8 @@ def cmd_once(schedule_path, state_path):
 
 def main():
     load_dotenv(HERE / ".env")
-    parser = argparse.ArgumentParser(description="WhatsApp routine reminder bot")
-    parser.add_argument("command", choices=["run", "once", "test", "today"])
+    parser = argparse.ArgumentParser(description="Routine reminder bot")
+    parser.add_argument("command", choices=["run", "once", "test", "today", "chatid"])
     parser.add_argument("--schedule", default=str(HERE / "schedule.yaml"))
     parser.add_argument("--state", default=str(HERE / "state.json"),
                         help="state file used by the 'once' command")
@@ -271,7 +300,8 @@ def main():
     if args.command == "once":
         cmd_once(args.schedule, args.state)
     else:
-        {"run": cmd_run, "test": cmd_test, "today": cmd_today}[args.command](args.schedule)
+        {"run": cmd_run, "test": cmd_test, "today": cmd_today,
+         "chatid": cmd_chatid}[args.command](args.schedule)
 
 
 if __name__ == "__main__":
