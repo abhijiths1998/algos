@@ -29,9 +29,21 @@ reminders:
   - time: "08:15"
     days: weekdays
     message: "🚿 Gym done. Shower, breakfast, get ready."
+  - time: "09:10"
+    days: weekdays
+    message: "🎒 Leave for office in 5 min. Laptop, charger, ID card, keys, wallet."
+  - time: "10:00"
+    days: weekdays
+    message: "🗒️ At your desk: pick today's top 3 work tasks before opening email or Slack."
   - time: "13:15"
     days: weekdays
     message: "📒 Lunch break: spend 15-20 min going over last night's class notes."
+  - time: "16:00"
+    days: weekdays
+    message: "💧 Drink water, stand up and stretch for 2 minutes."
+  - time: "19:00"
+    days: weekdays
+    message: "🏁 Wrap up: note where you left off, then head home. Dinner at 7:30."
   - time: "19:30"
     days: weekdays
     message: "🍽️ Dinner time."
