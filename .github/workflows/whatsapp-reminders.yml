@@ -30,24 +30,37 @@ jobs:
       CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
       CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
     steps:
+      # Until the secrets are added, scheduled runs skip quietly instead of
+      # failing (and emailing you) every 5 minutes. Manual test runs still fail
+      # so you can see what's missing.
+      - name: Check secrets
+        if: env.CALLMEBOT_APIKEY == '' && github.event_name == 'schedule'
+        run: echo "::notice::CALLMEBOT_PHONE / CALLMEBOT_APIKEY secrets not set yet, skipping."
+        working-directory: .
+
       - uses: actions/checkout@v4
+        if: env.CALLMEBOT_APIKEY != '' || github.event_name != 'schedule'
       - uses: actions/setup-python@v5
+        if: env.CALLMEBOT_APIKEY != '' || github.event_name != 'schedule'
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+        if: env.CALLMEBOT_APIKEY != '' || github.event_name != 'schedule'
 
       # Remember when the last check happened so nothing is sent twice.
       - uses: actions/cache/restore@v4
+        if: env.CALLMEBOT_APIKEY != '' || github.event_name != 'schedule'
         with:
           path: whatsapp_reminder/state.json
           key: reminder-state-${{ github.run_id }}
           restore-keys: reminder-state-
 
       - name: Send reminders
+        if: env.CALLMEBOT_APIKEY != '' || github.event_name != 'schedule'
         run: python bot.py ${{ inputs.mode || 'once' }}
 
       - uses: actions/cache/save@v4
-        if: always() && hashFiles('whatsapp_reminder/state.json') != ''
+        if: always() && (env.CALLMEBOT_APIKEY != '' || github.event_name != 'schedule') && hashFiles('whatsapp_reminder/state.json') != ''
         with:
           path: whatsapp_reminder/state.json
           key: reminder-state-${{ github.run_id }}
