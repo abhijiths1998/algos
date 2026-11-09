@@ -253,40 +253,55 @@ def cmd_run(schedule_path):
         last = now
 
 
+def load_send_early(path):
+    data = yaml.safe_load(Path(path).read_text())
+    minutes = int(data.get("send_early_minutes", 0) or 0)
+    if not 0 <= minutes <= 30:
+        sys.exit("schedule.yaml: send_early_minutes must be between 0 and 30")
+    return timedelta(minutes=minutes)
+
+
 def cmd_once(schedule_path, state_path):
-    """Send whatever came due since the previous run, then exit.
+    """Send whatever is due since the previous run, then exit.
 
     Meant for schedulers like GitHub Actions that start the bot every few
-    minutes (and often late). The time of the last check is kept in a small
-    state file so nothing is sent twice or missed between runs.
+    minutes (and often late). Reminders due within `send_early_minutes` are
+    sent now, to make up for late runs. The state file records how far ahead
+    reminders have been sent, so nothing is sent twice or missed.
     """
     tz, reminders = load_schedule(schedule_path)
+    early = load_send_early(schedule_path)
     sender = get_sender()
     now = datetime.now(tz)
+    horizon = now + early
     state = Path(state_path)
     try:
-        last = datetime.fromisoformat(json.loads(state.read_text())["last_check"])
+        saved = json.loads(state.read_text())
+        sent_until = datetime.fromisoformat(saved.get("sent_until") or saved["last_check"])
     except (OSError, ValueError, KeyError):
-        last = now - timedelta(minutes=10)  # first run: don't replay the whole day
+        sent_until = now - timedelta(minutes=10)  # first run: don't replay the whole day
         log("no previous state, looking back 10 minutes")
-    days = {last.astimezone(tz).date() + timedelta(days=i)
-            for i in range((now.date() - last.astimezone(tz).date()).days + 1)}
+    start = sent_until.astimezone(tz)
+    days = {start.date() + timedelta(days=i)
+            for i in range((horizon.date() - start.date()).days + 1)}
     due = sorted(
         (at, msg)
         for day in days
         for at, msg in occurrences(reminders, day, tz)
-        if last < at <= now
+        if sent_until < at <= horizon
     )
     for at, msg in due:
+        offset = round((now - at).total_seconds() / 60)
+        when = f"{-offset} min early" if offset < 0 else f"{offset} min late"
         if now - at > ONCE_GRACE:
             log(f"skipped stale {at:%a %H:%M} reminder")
-        elif send_with_retry(sender, msg):
-            log(f"sent {at:%H:%M} ({(now - at).seconds // 60} min late): {msg}")
+        elif send_with_retry(sender, f"🕘 {at:%-I:%M %p}  {msg}"):
+            log(f"sent {at:%H:%M} ({when}): {msg}")
         else:
             log(f"FAILED {at:%H:%M}: {msg}")
     if not due:
         log("nothing due")
-    state.write_text(json.dumps({"last_check": now.isoformat()}))
+    state.write_text(json.dumps({"sent_until": max(horizon, sent_until).isoformat()}))
 
 
 def main():

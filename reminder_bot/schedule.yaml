@@ -1,13 +1,19 @@
-# Daily routine reminders, sent to WhatsApp.
+# Daily routine reminders, sent to you on Telegram.
 #
 # Each reminder needs:
 #   time: "HH:MM" in 24-hour format, in the timezone below
 #   days: weekdays | weekends | daily | a list like [mon, wed, fri]
 #   message: the text to send
 #
-# Edit times freely. Restart the bot after changing this file.
+# Edit times freely and commit. (If you run the bot yourself, restart it.)
 
 timezone: Asia/Kolkata
+
+# GitHub Actions often starts runs 5-20 minutes late. To make up for that,
+# each run also sends reminders due in the next N minutes (0-30). Each message
+# shows its real time, e.g. "🕘 9:00 PM  💻 FDE class starts now."
+# Only used on GitHub Actions; `python bot.py run` always sends on the minute.
+send_early_minutes: 10
 
 reminders:
   # ---------- Weekdays (Mon-Fri) ----------

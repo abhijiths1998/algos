@@ -39,9 +39,13 @@ themselves.
 
 ## Good to know
 
-- **Timing:** GitHub starts scheduled runs late, often by 5–20 minutes, so
-  reminders can be late. The bot catches up on anything it missed, never sends
-  the same reminder twice, and skips anything more than 45 minutes old.
+- **Timing:** GitHub starts scheduled runs late, often by 5–20 minutes. To
+  make up for it, each run also sends reminders due in the next 10 minutes
+  (`send_early_minutes` in `schedule.yaml`). Each message starts with its real
+  time, like `🕘 9:00 PM`, so you know when it's for. Reminders then arrive
+  anywhere from about 10 minutes early to a few minutes late. Raise the
+  setting if they're still late, or lower it if they're too early. The bot
+  never sends the same reminder twice and skips anything over 45 minutes old.
 - **60-day pause:** GitHub pauses scheduled workflows in repos with no commits
   for 60 days. If reminders stop, re-enable the workflow on the Actions tab.
 - **Until both secrets are set**, scheduled runs skip quietly instead of
